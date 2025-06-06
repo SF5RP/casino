@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { WEBSOCKET_URL } from '../../config/websocket';
 
 export function useRouletteWebSocket(key: string | undefined) {

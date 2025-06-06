@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRouletteHistory, updateRouletteHistory } from '../../rouletteStore';
 
-export async function GET(req: NextRequest, { params }: { params: { key: string } }) {
-  const { key } = params;
+export async function GET(req: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+  const { key } = await params;
   const history = getRouletteHistory(key);
   if (!history) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -10,8 +10,8 @@ export async function GET(req: NextRequest, { params }: { params: { key: string 
   return NextResponse.json({ history });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { key: string } }) {
-  const { key } = params;
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+  const { key } = await params;
   const body = await req.json();
   if (!Array.isArray(body.history)) {
     return NextResponse.json({ error: 'Invalid history' }, { status: 400 });

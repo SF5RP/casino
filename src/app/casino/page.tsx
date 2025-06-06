@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { Box, Button, Grid, TextField, Typography, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { useEffect, useState, useMemo, Suspense } from 'react';
+import { Box, Button, TextField, Typography, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { useRouletteWebSocket } from './useRouletteHistory';
 import { useSnackbar } from 'notistack';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -10,13 +10,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 const BLACK_NUMBERS = new Set([2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35]);
 
-const COLUMNS = [
-  Array.from({ length: 12 }, (_, i) => 3 + i * 3),
-  Array.from({ length: 12 }, (_, i) => 2 + i * 3),
-  Array.from({ length: 12 }, (_, i) => 1 + i * 3)
-];
 
-const LOCAL_KEY = 'roulette-history';
+
+
 
 const GROUPS: Record<string, number[]> = {
   '1st 12': Array.from({ length: 12 }, (_, i) => i + 1),
@@ -49,12 +45,9 @@ function getContrastText(bgColor: string): string {
   return brightness > 140 ? '#222' : '#fff';
 }
 
-function generateKey() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID().slice(0, 8);
-  return Math.random().toString(36).slice(2, 10);
-}
 
-export default function RouletteTrackerPage() {
+
+function RouletteTrackerPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
@@ -127,7 +120,7 @@ export default function RouletteTrackerPage() {
 
   useEffect(() => {
     if (!key) {
-      const newKey = generateKey();
+      const newKey = Math.random().toString(36).substring(2, 15);
       router.replace(`/casino?key=${newKey}`);
     }
   }, [key, router]);
@@ -154,15 +147,7 @@ export default function RouletteTrackerPage() {
     enqueueSnackbar('Ссылка скопирована! Можно делиться.', { variant: 'success' });
   };
 
-  const toggleGroup = (label: string) => {
-    if (activeLabel === label) {
-      setActiveLabel('');
-      setActiveGroup([]);
-    } else {
-      setActiveLabel(label);
-      setActiveGroup(GROUPS[label]);
-    }
-  };
+
 
   const getColor = (num: number | '00') => {
     if (num === 0 || num === '00') return '#2ecc71'; // зеленый для 0 и 00
@@ -199,7 +184,6 @@ export default function RouletteTrackerPage() {
       }
       
       const progressColor = getProgressColor(count);
-      const angle = (progressPercent / 100) * 360;
       
       if (progressPercent >= 100) {
         return `3px solid ${progressColor}`;
@@ -278,7 +262,6 @@ export default function RouletteTrackerPage() {
       }
     }
 
-    const shouldShowToggle = history.length > maxVisibleItems;
     const visibleHistory = showFullHistory ? history : history.slice(-maxVisibleItems);
 
     const renderHistoryItem = (num: number | '00', idx: number, originalIdx: number) => (
@@ -293,41 +276,41 @@ export default function RouletteTrackerPage() {
         fontWeight: 'bold', 
         fontSize: 15,
         border: repeatIndexes.has(originalIdx) ? '2px solid #0000ff' : '2px solid #e2e8f0',
-        position: 'relative',
+            position: 'relative',
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        cursor: 'pointer',
-        transition: 'width 0.22s cubic-bezier(.4,2,.6,1)',
+            cursor: 'pointer',
+            transition: 'width 0.22s cubic-bezier(.4,2,.6,1)',
         flexShrink: 0, // предотвращаем сжатие
-        '&:hover': {
-          width: 52,
-        },
-        '&:hover .delete-icon': { display: 'flex' },
-      }}>
-        {num}
-        <Tooltip title="Удалить из истории" arrow>
-          <Box
-            component="span"
-            className="delete-icon"
-            sx={{
-              cursor: 'pointer',
-              color: '#ff5858',
-              fontSize: 16,
-              fontWeight: 700,
-              userSelect: 'none',
-              display: 'none',
-              alignItems: 'center',
-              transition: 'display 0.2s',
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
+            '&:hover': {
+              width: 52,
+            },
+            '&:hover .delete-icon': { display: 'flex' },
+          }}>
+            {num}
+            <Tooltip title="Удалить из истории" arrow>
+              <Box
+                component="span"
+                className="delete-icon"
+                sx={{
+                  cursor: 'pointer',
+                  color: '#ff5858',
+                  fontSize: 16,
+                  fontWeight: 700,
+                  userSelect: 'none',
+                  display: 'none',
+                  alignItems: 'center',
+                  transition: 'display 0.2s',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
               setHistory(history.filter((_, i) => i !== originalIdx));
-            }}
-          >
-            ❌
-          </Box>
-        </Tooltip>
+                }}
+              >
+                ❌
+              </Box>
+            </Tooltip>
       </Box>
     );
 
@@ -512,9 +495,9 @@ export default function RouletteTrackerPage() {
                     от нормы (2.7%)
                   </Typography>
                 </Box>
-              </Box>
-            ))}
           </Box>
+        ))}
+      </Box>
         </DialogContent>
         
         <DialogActions sx={{ borderTop: '1px solid #333', p: 2 }}>
@@ -722,8 +705,8 @@ export default function RouletteTrackerPage() {
                      const blackCount = history.filter(h => typeof h === 'number' && h !== 0 && BLACK_NUMBERS.has(h)).length;
                      const greenCount = history.filter(h => h === 0 || h === '00').length;
                      const total = redCount + blackCount + greenCount;
-                     
-                     return (
+
+  return (
                        <>
                          <Box display="flex" justifyContent="space-between" mb={1}>
                            <Box display="flex" alignItems="center" gap={1}>
@@ -953,7 +936,7 @@ export default function RouletteTrackerPage() {
           <Typography variant="body2" color="#ccc" mb={1}>
             Количество строк: {historyRows}
           </Typography>
-          <TextField
+        <TextField
             type="number"
             value={historyRows}
             onChange={(e) => {
@@ -988,7 +971,7 @@ export default function RouletteTrackerPage() {
             }}
           >
             {showFullHistory ? 'Скрыть старую историю' : 'Показать всю историю'}
-          </Button>
+        </Button>
         </Box>
 
         <Typography variant="caption" color="#999" mb={2} display="block">
@@ -1039,9 +1022,9 @@ export default function RouletteTrackerPage() {
               '&:hover': { borderColor: '#f44336' }
             }}
           >
-            Сбросить всё
-          </Button>
-        </Box>
+          Сбросить всё
+        </Button>
+      </Box>
       </Box>
     </Box>
   );
@@ -1360,5 +1343,18 @@ export default function RouletteTrackerPage() {
       </Button>
     </Box>
     </>
+  );
+}
+
+export default function RouletteTrackerPage() {
+  return (
+    <Suspense fallback={
+      <Box p={4} display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="60vh">
+        <CircularProgress />
+        <Typography mt={2}>Загрузка...</Typography>
+      </Box>
+    }>
+      <RouletteTrackerPageContent />
+    </Suspense>
   );
 }
