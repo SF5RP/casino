@@ -18,7 +18,6 @@ export const WS_CONFIG = {
     // В production через Nginx используем стандартные порты
     if (process.env.NODE_ENV === 'production' && wsHost !== 'localhost') {
       const protocol = wsProtocol === 'wss' ? 'wss' : 'ws';
-      const port = protocol === 'wss' ? '443' : '80';
       return `${protocol}://${wsHost}/ws`;
     }
     
