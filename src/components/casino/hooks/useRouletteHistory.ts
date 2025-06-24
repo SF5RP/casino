@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { WEBSOCKET_URL } from '../../config/websocket';
+import { WEBSOCKET_URL } from '../../../config/websocket';
+import type { RouletteNumber } from '../types/rouletteTypes';
 
 export function useRouletteWebSocket(key: string | undefined) {
-  const [history, setHistory] = useState<(number | '00')[]>([]);
+  const [history, setHistory] = useState<RouletteNumber[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -32,12 +33,13 @@ export function useRouletteWebSocket(key: string | undefined) {
   }, [key]);
 
   // Отправка изменений
-  const sendHistory = useCallback((newHistory: (number | '00')[]) => {
-    setHistory(newHistory);
+  const sendHistory = useCallback((newHistory: RouletteNumber[] | ((prev: RouletteNumber[]) => RouletteNumber[])) => {
+    const updatedHistory = typeof newHistory === 'function' ? newHistory(history) : newHistory;
+    setHistory(updatedHistory);
     if (wsRef.current && wsRef.current.readyState === 1 && key) {
-      wsRef.current.send(JSON.stringify({ type: 'update', key, history: newHistory }));
+      wsRef.current.send(JSON.stringify({ type: 'update', key, history: updatedHistory }));
     }
-  }, [key]);
+  }, [key, history]);
 
   // Если ключа нет — возвращаем заглушку, но хук всегда вызывается!
   if (!key) {
@@ -49,7 +51,7 @@ export function useRouletteWebSocket(key: string | undefined) {
 
 export function useSaveRouletteHistory() {
   return useMutation({
-    mutationFn: async (history: (number | '00')[]) => {
+    mutationFn: async (history: RouletteNumber[]) => {
       const res = await fetch('/api/roulette/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,7 +70,7 @@ export function useFetchRouletteHistory(key: string | undefined) {
       if (!key) throw new Error('Нет ключа');
       const res = await fetch(`/api/roulette/${key}`);
       if (!res.ok) throw new Error('История не найдена');
-      return res.json() as Promise<{ history: (number | '00')[] }>;
+      return res.json() as Promise<{ history: RouletteNumber[] }>;
     },
     enabled: !!key,
     refetchInterval: key ? 5000 : false,
@@ -77,7 +79,7 @@ export function useFetchRouletteHistory(key: string | undefined) {
 
 export function usePatchRouletteHistory(key: string | undefined) {
   return useMutation({
-    mutationFn: async (history: (number | '00')[]) => {
+    mutationFn: async (history: RouletteNumber[]) => {
       if (!key) throw new Error('Нет ключа');
       const res = await fetch(`/api/roulette/${key}`, {
         method: 'PATCH',

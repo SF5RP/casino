@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Box } from '@mui/material';
 
 export default function Home() {
   const router = useRouter();
@@ -11,7 +12,7 @@ export default function Home() {
   }, [router]);
 
   return (
-    <div style={{ 
+    <Box sx={{ 
       display: 'flex', 
       justifyContent: 'center', 
       alignItems: 'center', 
@@ -19,6 +20,6 @@ export default function Home() {
       fontSize: '18px'
     }}>
       Redirecting to Casino...
-    </div>
+    </Box>
   );
 }
