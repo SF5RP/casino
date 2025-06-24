@@ -16,7 +16,7 @@ import { DetailedStatsModal } from '../components/casino/components/DetailedStat
 import { GameInfo } from '../components/casino/components/GameInfo';
 import { FloatingButtons } from '../components/casino/components/FloatingButtons';
 import { ForecastPanel } from '../components/casino/components/ForecastPanel';
-import type { SortBy } from '../components/casino/types/rouletteTypes';
+import type { SortBy, RouletteNumber } from '../components/casino/types/rouletteTypes';
 
 const RouletteTrackerPageContent: React.FC = () => {
   const searchParams = useSearchParams();
@@ -84,7 +84,7 @@ const RouletteTrackerPageContent: React.FC = () => {
   }, [key, enqueueSnackbar]);
 
   // Мемоизируем колбэки для RouletteBoard
-  const handleSetHistory = useCallback((newHistory: any) => {
+  const handleSetHistory = useCallback((newHistory: React.SetStateAction<RouletteNumber[]>) => {
     setHistory(newHistory);
   }, [setHistory]);
 

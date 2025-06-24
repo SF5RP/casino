@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Tooltip } from '@mui/material';
-import { getContrastText, getNumberColor, getProgressColor } from '../utils/rouletteUtils';
+import { getNumberColor, getProgressColor } from '../utils/rouletteUtils';
 import { CellTooltip } from './CellTooltip';
 import type { RouletteNumber } from '../types/rouletteTypes';
 

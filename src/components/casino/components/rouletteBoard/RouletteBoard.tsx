@@ -94,7 +94,7 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
         history={history}
       />
     );
-  }, [ageMap, activeLabel, activeGroup, handleCellClick]);
+  }, [ageMap, activeLabel, activeGroup, handleCellClick, history]);
 
   // Мемоизируем создание сетки чисел
   const numberGrid = useMemo(() => {
@@ -150,6 +150,32 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
     }
     return result;
   }, [history, twoToOneGroups]);
+
+  // Мемоизируем стили кнопок "2 to 1"
+  const twoToOneButtonStyles = useMemo(() => {
+    return twoToOneAges.map(({ groupAge }) => {
+      const bg = '#52b788';
+      const hasProgress = groupAge > 0;
+      
+      if (!hasProgress) {
+        return {
+          background: bg,
+          border: 'none',
+        };
+      }
+      
+      const progressColor = getProgressColor(groupAge);
+      const normalizedProgress = Math.min(groupAge / 30, 1);
+      const progressAngle = normalizedProgress * 360;
+      
+      return {
+        background: `linear-gradient(${bg}, ${bg}) padding-box, conic-gradient(from 0deg, ${progressColor} 0deg, ${progressColor} ${progressAngle}deg, transparent ${progressAngle}deg, transparent 360deg) border-box`,
+        border: '3px solid transparent',
+        backgroundOrigin: 'border-box',
+        backgroundClip: 'padding-box, border-box',
+      };
+    });
+  }, [twoToOneAges]);
 
   return (
     <Box 
@@ -218,33 +244,16 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
           gridRow: '1 / 4',
         }}
       >
-        {twoToOneAges.map(({ rowIdx, rowNums, groupAge }) => {
-          const bg = '#52b788'; // Более бледный зеленый фон для всех кнопок 2 to 1
+        {twoToOneAges.map(({ rowIdx, rowNums, groupAge }, index) => {
           const buttonKey = `2to1-${rowIdx}`;
           const isActiveButton = activeLabel === buttonKey;
           
-          // Упрощенные стили - мемоизируем только если есть прогресс
-          const buttonStyles = useMemo(() => {
-            const hasProgress = groupAge > 0;
-            
-            if (!hasProgress) {
-              return {
-                background: bg,
-                border: isActiveButton ? '2px solid #f1c40f' : 'none',
-              };
-            }
-            
-            const progressColor = getProgressColor(groupAge);
-            const normalizedProgress = Math.min(groupAge / 30, 1);
-            const progressAngle = normalizedProgress * 360;
-            
-            return {
-              background: `linear-gradient(${bg}, ${bg}) padding-box, conic-gradient(from 0deg, ${progressColor} 0deg, ${progressColor} ${progressAngle}deg, transparent ${progressAngle}deg, transparent 360deg) border-box`,
-              border: isActiveButton ? '2px solid #f1c40f' : '3px solid transparent',
-              backgroundOrigin: 'border-box',
-              backgroundClip: 'padding-box, border-box',
-            };
-          }, [groupAge, isActiveButton, bg]);
+          // Используем предрасчитанные стили
+          const baseButtonStyles = twoToOneButtonStyles[index];
+          const buttonStyles = {
+            ...baseButtonStyles,
+            border: isActiveButton ? '2px solid #f1c40f' : baseButtonStyles.border,
+          };
           
           return (
             <Box

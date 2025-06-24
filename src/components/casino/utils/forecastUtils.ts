@@ -22,7 +22,6 @@ export function buildCombinedForecast(
     decay = 0.97,
     sectorWeight = 0.5,
     longTermPenalty = 0.5,
-    longTermBonus = 1.5
   } = config;
 
   // Конвертируем историю в строки для совместимости
@@ -52,7 +51,6 @@ export function buildCombinedForecast(
   }
 
   const numberSet = new Set([...Array(36)].map((_, i) => (i + 1).toString()).concat(["0", "00"]));
-  const maxCount = Math.max(...[...counts.values()]);
   const maxSector = Math.max(...Object.values(sectors));
 
   const entries: ForecastEntry[] = [];

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Button, Tooltip, Box } from '@mui/material';
-import { calculateGroupAge, getContrastText, getProgressColor } from '../../utils/rouletteUtils';
+import { calculateGroupAge, getProgressColor } from '../../utils/rouletteUtils';
 import type { RouletteNumber } from '../../types/rouletteTypes';
 
 interface BetButtonProps {
@@ -35,7 +35,7 @@ const BetButtonComponent: React.FC<BetButtonProps> = ({
     const hasProgress = groupAge > 0;
     
     let background = bg;
-    let border = isActive ? '2px solid #f1c40f' : '3px solid transparent';
+    const border = isActive ? '2px solid #f1c40f' : '3px solid transparent';
     let backgroundOrigin = 'padding-box';
     let backgroundClip = 'padding-box';
     

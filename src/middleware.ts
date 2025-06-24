@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export function middleware(request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function middleware(_request: NextRequest) {
   // Отключаем middleware для работы главной страницы
   return NextResponse.next();
   
