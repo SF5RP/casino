@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { findRepeats } from '../utils/rouletteUtils';
 import type { RouletteNumber, AgeMap, RepeatSeries } from '../types/rouletteTypes';
@@ -9,24 +9,22 @@ interface GameInfoProps {
 }
 
 export const GameInfo: React.FC<GameInfoProps> = ({ history, ageMap }) => {
-  const getOldestNumbers = () => {
-    const nums: number[] = Array.from({ length: 37 }, (_, i) => i);
-    const allNums: RouletteNumber[] = [...nums, '00'];
-    const ages = allNums.map((n) => ({ n, age: ageMap[String(n)] ?? 0 }));
+  // Мемоизируем самые старые числа - тяжелый расчет
+  const oldestNumbers = useMemo(() => {
+    // Создаем массив всех чисел только один раз
+    const allNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, '00'] as RouletteNumber[];
+    
+    // Быстро создаем массив с возрастами и сортируем
+    const ages = allNumbers.map((n) => ({ n, age: ageMap[String(n)] ?? 0 }));
     ages.sort((a, b) => b.age - a.age);
     return ages.slice(0, 3);
-  };
+  }, [ageMap]);
 
-  const hasRecentRepeat = () => {
-    return history.length >= 2 && history[history.length - 1] === history[history.length - 2];
-  };
+  // Простая проверка повтора - не нужно мемоизировать
+  const hasRecentRepeat = history.length >= 2 && history[history.length - 1] === history[history.length - 2];
 
-  const getRepeats = () => {
-    return findRepeats(history);
-  };
-
-  const oldestNumbers = getOldestNumbers();
-  const repeats = getRepeats();
+  // Мемоизируем повторы только если история изменилась
+  const repeats = useMemo(() => findRepeats(history), [history]);
 
   return (
     <Box>
@@ -60,7 +58,7 @@ export const GameInfo: React.FC<GameInfoProps> = ({ history, ageMap }) => {
       </Box>
 
       {/* Повторяющееся число */}
-      {hasRecentRepeat() && (
+      {hasRecentRepeat && (
         <Box mt={2} mb={2}>
           <Typography variant="subtitle1" fontWeight={700} color="#fff">
             Повтор подряд:

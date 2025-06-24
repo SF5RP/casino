@@ -2,11 +2,13 @@
 
 // Single components (now in root)
 export { RouletteCell } from './RouletteCell';
+export { CellTooltip } from './CellTooltip';
 export { HistoryPanel } from './HistoryPanel';
 export { SettingsPanel } from './SettingsPanel';
 export { DetailedStatsModal } from './DetailedStatsModal';
 export { GameInfo } from './GameInfo';
 export { FloatingButtons } from './FloatingButtons';
+export { ForecastPanel } from './ForecastPanel';
 
 // Grouped components (still in folders)
 export { RouletteBoard } from './rouletteBoard/RouletteBoard';

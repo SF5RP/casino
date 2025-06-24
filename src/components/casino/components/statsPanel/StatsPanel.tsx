@@ -13,6 +13,7 @@ interface StatsPanelProps {
   setShowStats: (show: boolean) => void;
   setShowDetailedStats: (show: boolean) => void;
   history: RouletteNumber[];
+  isEmbedded?: boolean;
 }
 
 export const StatsPanel: React.FC<StatsPanelProps> = ({
@@ -20,6 +21,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
   setShowStats,
   setShowDetailedStats,
   history,
+  isEmbedded = false,
 }) => {
   // Подготавливаем данные статистики
   const allNumbers: RouletteNumber[] = [0, ...Array.from({ length: 36 }, (_, i) => i + 1), '00'];
@@ -47,7 +49,14 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
   
   return (
     <Box 
-      sx={{
+      sx={isEmbedded ? {
+        // Встроенный режим - без позиционирования
+        width: '100%',
+        backgroundColor: 'transparent',
+        padding: 0,
+        overflowY: 'auto',
+      } : {
+        // Всплывающий режим
         position: 'fixed',
         top: 0,
         left: showStats ? 0 : '-450px',
@@ -61,15 +70,17 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
         overflowY: 'auto',
       }}
     >
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h6" color="white">Статистика чисел</Typography>
-        <Button 
-          onClick={() => setShowStats(false)}
-          sx={{ color: 'white', minWidth: 'auto', p: 1 }}
-        >
-          ✕
-        </Button>
-      </Box>
+      {!isEmbedded && (
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Typography variant="h6" color="white">Статистика чисел</Typography>
+          <Button 
+            onClick={() => setShowStats(false)}
+            sx={{ color: 'white', minWidth: 'auto', p: 1 }}
+          >
+            ✕
+          </Button>
+        </Box>
+      )}
 
       <Box mb={3}>
         <Typography variant="body2" color="#ccc" mb={2}>

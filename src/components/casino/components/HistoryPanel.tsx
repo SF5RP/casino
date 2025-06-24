@@ -75,7 +75,13 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
   return (
     <Box mb={2}>
-      <Box display="flex" flexWrap="wrap" gap={1}>
+      <Box 
+        display="flex" 
+        flexWrap="wrap" 
+        gap={1}
+        justifyContent="center"
+        alignItems="center"
+      >
         {visibleHistory.map((num, idx) => {
           const originalIdx = showFullHistory ? idx : (history.length - maxVisibleItems + idx);
           return renderHistoryItem(num, idx, originalIdx);

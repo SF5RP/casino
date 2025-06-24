@@ -21,31 +21,128 @@ export function getContrastText(bgColor: string): string {
 }
 
 export function getNumberColor(num: RouletteNumber): string {
-  if (num === 0 || num === '00') return '#2ecc71'; // зеленый для 0 и 00
-  if (RED_NUMBERS.has(num as number)) return '#e74c3c';
-  if (BLACK_NUMBERS.has(num as number)) return '#2c3e50';
-  return '#bdc3c7';
+  if (num === 0 || num === '00') return '#52b788'; // более бледный зеленый для 0 и 00
+  
+  // Конвертируем в число для проверки
+  const numValue = typeof num === 'string' ? parseInt(num, 10) : num;
+  
+  if (!isNaN(numValue) && RED_NUMBERS.has(numValue)) return '#e74c3c'; // красный
+  if (!isNaN(numValue) && BLACK_NUMBERS.has(numValue)) return '#2c3e50'; // черный
+  
+  return '#52b788'; // зеленый для всех остальных (включая некорректные значения)
 }
 
 export function calculateAgeMap(history: RouletteNumber[]): AgeMap {
+  const DEBUG_LOGS = process.env.NODE_ENV === 'development';
+  
+  if (DEBUG_LOGS) {
+    console.log(`🗺️ Расчет AgeMap для ${history.length} элементов истории`);
+  }
+  
+  // Инициализируем все числа максимальным возрастом
   const ageMap: AgeMap = {};
   for (let i = 0; i <= 36; i++) {
-    const index = [...history].reverse().findIndex((v) => v === i);
-    ageMap[String(i)] = index === -1 ? history.length : index;
+    ageMap[String(i)] = history.length;
   }
-  ageMap['00'] = [...history].reverse().findIndex((v) => v === '00');
-  if (ageMap['00'] === -1) ageMap['00'] = history.length;
+  ageMap['00'] = history.length;
+  
+  // Проходим историю один раз с конца, обновляя только найденные числа
+  for (let i = history.length - 1; i >= 0; i--) {
+    const num = String(history[i]);
+    if (ageMap[num] === history.length) { // Если еще не обновлено
+      ageMap[num] = history.length - 1 - i;
+    }
+  }
+  
+  if (DEBUG_LOGS) {
+    console.log(`✅ AgeMap готов (${Object.keys(ageMap).length} чисел)`);
+  }
   return ageMap;
 }
 
+// Кэш для цветов прогресса
+const progressColorCache = new Map<number, string>();
+
 export function getProgressColor(count: number): string {
-  if (count < 20) return '#4ade80'; // зеленый
-  if (count < 50) return '#fbbf24'; // желтый
-  if (count < 80) return '#fb923c'; // оранжевый
-  return '#ef4444'; // красный
+  // Проверяем кэш
+  if (progressColorCache.has(count)) {
+    return progressColorCache.get(count)!;
+  }
+  
+  // Плавная градация от зеленого через желтый к оранжевому
+  // Нормализуем значение от 0 до 1 для диапазона 0-100
+  const normalizedCount = Math.min(count / 100, 1);
+  
+  let color: string;
+  
+  if (normalizedCount <= 0.2) {
+    // 0-20: Зеленый
+    color = '#22c55e';
+  } else if (normalizedCount <= 0.4) {
+    // 20-40: Зеленый → Светло-зеленый
+    const progress = (normalizedCount - 0.2) / 0.2;
+    color = interpolateColor('#22c55e', '#84cc16', progress);
+  } else if (normalizedCount <= 0.6) {
+    // 40-60: Светло-зеленый → Желто-зеленый
+    const progress = (normalizedCount - 0.4) / 0.2;
+    color = interpolateColor('#84cc16', '#eab308', progress);
+  } else if (normalizedCount <= 0.8) {
+    // 60-80: Желто-зеленый → Желтый
+    const progress = (normalizedCount - 0.6) / 0.2;
+    color = interpolateColor('#eab308', '#f59e0b', progress);
+  } else {
+    // 80-100: Желтый → Оранжевый
+    const progress = (normalizedCount - 0.8) / 0.2;
+    color = interpolateColor('#f59e0b', '#ea580c', progress);
+  }
+  
+  // Кэшируем результат
+  progressColorCache.set(count, color);
+  return color;
 }
 
+// Функция для интерполяции между двумя цветами
+function interpolateColor(color1: string, color2: string, factor: number): string {
+  // Преобразуем hex в RGB
+  const hex1 = color1.replace('#', '');
+  const hex2 = color2.replace('#', '');
+  
+  const r1 = parseInt(hex1.substr(0, 2), 16);
+  const g1 = parseInt(hex1.substr(2, 2), 16);
+  const b1 = parseInt(hex1.substr(4, 2), 16);
+  
+  const r2 = parseInt(hex2.substr(0, 2), 16);
+  const g2 = parseInt(hex2.substr(2, 2), 16);
+  const b2 = parseInt(hex2.substr(4, 2), 16);
+  
+  // Интерполируем каждый канал
+  const r = Math.round(r1 + (r2 - r1) * factor);
+  const g = Math.round(g1 + (g2 - g1) * factor);
+  const b = Math.round(b1 + (b2 - b1) * factor);
+  
+  // Преобразуем обратно в hex
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+// Кэш для расчета возраста групп
+const groupAgeCache = new Map<string, number>();
+let lastHistoryLength = 0;
+
 export function calculateGroupAge(history: RouletteNumber[], group: number[]): number {
+  // Очищаем кэш если история изменилась
+  if (history.length !== lastHistoryLength) {
+    groupAgeCache.clear();
+    lastHistoryLength = history.length;
+  }
+  
+  // Создаем уникальный ключ для группы
+  const groupKey = group.sort().join(',');
+  
+  // Проверяем кэш
+  if (groupAgeCache.has(groupKey)) {
+    return groupAgeCache.get(groupKey)!;
+  }
+  
   let groupAge = history.length;
   for (let i = history.length - 1; i >= 0; i--) {
     if (group.includes(history[i] as number)) {
@@ -53,6 +150,9 @@ export function calculateGroupAge(history: RouletteNumber[], group: number[]): n
       break;
     }
   }
+  
+  // Кэшируем результат
+  groupAgeCache.set(groupKey, groupAge);
   return groupAge;
 }
 

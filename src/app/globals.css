@@ -1,4 +1,9 @@
 html {
     background-color: #1d1d1d;
     color: #fff;
+    font-family: 'Huninn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+    font-family: 'Huninn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 } 

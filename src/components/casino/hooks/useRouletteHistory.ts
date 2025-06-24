@@ -7,6 +7,7 @@ export function useRouletteWebSocket(key: string | undefined) {
   const [history, setHistory] = useState<RouletteNumber[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const sendTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Подключение к WebSocket
   useEffect(() => {
@@ -29,16 +30,50 @@ export function useRouletteWebSocket(key: string | undefined) {
     return () => {
       ws.close();
       setIsConnected(false);
+      if (sendTimeoutRef.current) {
+        clearTimeout(sendTimeoutRef.current);
+        sendTimeoutRef.current = null;
+      }
     };
   }, [key]);
 
-  // Отправка изменений
+  // Отправка изменений (асинхронная)
   const sendHistory = useCallback((newHistory: RouletteNumber[] | ((prev: RouletteNumber[]) => RouletteNumber[])) => {
+    console.time('sendHistory');
+    console.log('🚀 Начало sendHistory, текущая история:', history.length);
+    
+    const startTime = performance.now();
     const updatedHistory = typeof newHistory === 'function' ? newHistory(history) : newHistory;
+    const historyCalcTime = performance.now();
+    console.log(`📊 Расчет новой истории: ${(historyCalcTime - startTime).toFixed(2)}ms`);
+    
+    // Сначала обновляем UI (синхронно)
     setHistory(updatedHistory);
-    if (wsRef.current && wsRef.current.readyState === 1 && key) {
-      wsRef.current.send(JSON.stringify({ type: 'update', key, history: updatedHistory }));
+    const setHistoryTime = performance.now();
+    console.log(`💾 setHistory: ${(setHistoryTime - historyCalcTime).toFixed(2)}ms`);
+    
+    // Затем отправляем на сервер асинхронно с дебаунсингом (не блокируем UI)
+    if (sendTimeoutRef.current) {
+      clearTimeout(sendTimeoutRef.current);
     }
+    
+    sendTimeoutRef.current = setTimeout(() => {
+      if (wsRef.current && wsRef.current.readyState === 1 && key) {
+        const wsStartTime = performance.now();
+        wsRef.current.send(JSON.stringify({ type: 'update', key, history: updatedHistory }));
+        const wsEndTime = performance.now();
+        console.log(`🌐 WebSocket send (async): ${(wsEndTime - wsStartTime).toFixed(2)}ms`);
+        console.log('📡 Отправлено на сервер:', updatedHistory.length, 'элементов');
+      } else {
+        console.log('❌ WebSocket не готов:', {
+          wsReady: wsRef.current?.readyState === 1,
+          hasKey: !!key
+        });
+      }
+      sendTimeoutRef.current = null;
+    }, 10); // 10ms задержка для группировки быстрых кликов
+    
+    console.timeEnd('sendHistory');
   }, [key, history]);
 
   // Если ключа нет — возвращаем заглушку, но хук всегда вызывается!
