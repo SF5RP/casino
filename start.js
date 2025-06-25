@@ -1,34 +1,17 @@
 const { spawn } = require('child_process');
 const config = require('./config');
 
-console.log('🚀 Запуск приложения рулетки...\n');
+console.log('🚀 Запуск Next.js приложения рулетки...\n');
 
-// Запускаем WebSocket сервер
-console.log(`📡 Запуск WebSocket сервера на порту ${config.WS_PORT}...`);
-const wsServer = spawn('node', ['wsServer.js'], {
-  stdio: 'pipe',
-  env: { ...process.env, WS_PORT: config.WS_PORT }
-});
-
-// Запускаем Next.js приложение
+// Запускаем только Next.js приложение
 console.log(`🌐 Запуск Next.js приложения на порту ${config.APP_PORT}...`);
 const nextApp = spawn('npm', ['run', 'dev'], {
   stdio: 'pipe',
   env: { 
     ...process.env, 
-    PORT: config.APP_PORT,
-    NEXT_PUBLIC_WS_PORT: config.WS_PORT 
+    PORT: config.APP_PORT
   },
   shell: true
-});
-
-// Обработка вывода WebSocket сервера
-wsServer.stdout.on('data', (data) => {
-  console.log(`[WS] ${data.toString().trim()}`);
-});
-
-wsServer.stderr.on('data', (data) => {
-  console.error(`[WS ERROR] ${data.toString().trim()}`);
 });
 
 // Обработка вывода Next.js приложения
@@ -46,27 +29,15 @@ nextApp.stderr.on('data', (data) => {
   }
 });
 
-// Обработка завершения процессов
-wsServer.on('close', (code) => {
-  console.log(`\n❌ WebSocket сервер завершился с кодом ${code}`);
-  if (code !== 0) {
-    nextApp.kill();
-    process.exit(1);
-  }
-});
-
+// Обработка завершения процесса
 nextApp.on('close', (code) => {
   console.log(`\n❌ Next.js приложение завершилось с кодом ${code}`);
-  if (code !== 0) {
-    wsServer.kill();
-    process.exit(1);
-  }
+  process.exit(code);
 });
 
 // Обработка сигналов завершения
 process.on('SIGINT', () => {
-  console.log('\n🛑 Получен сигнал завершения. Останавливаем сервисы...');
-  wsServer.kill('SIGINT');
+  console.log('\n🛑 Получен сигнал завершения. Останавливаем Next.js...');
   nextApp.kill('SIGINT');
   setTimeout(() => {
     process.exit(0);
@@ -74,15 +45,14 @@ process.on('SIGINT', () => {
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n🛑 Получен сигнал SIGTERM. Останавливаем сервисы...');
-  wsServer.kill('SIGTERM');
+  console.log('\n🛑 Получен сигнал SIGTERM. Останавливаем Next.js...');
   nextApp.kill('SIGTERM');
   setTimeout(() => {
     process.exit(0);
   }, 2000);
 });
 
-console.log('\n✅ Оба сервиса запущены!');
-console.log(`🌐 Next.js приложение: http://localhost:${config.APP_PORT}`);
-console.log(`📡 WebSocket сервер: ws://localhost:${config.WS_PORT}`);
+console.log('\n✅ Next.js приложение запущено!');
+console.log(`🌐 Приложение: http://localhost:${config.APP_PORT}`);
+console.log('📡 WebSocket подключение: Go Backend на порту 8080');
 console.log('\n💡 Для остановки нажмите Ctrl+C\n'); 

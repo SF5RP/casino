@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { WEBSOCKET_URL } from '../../../config/websocket';
+import { rouletteApi } from '../../../lib/api/rouletteApi';
 import type { RouletteNumber } from '../types/rouletteTypes';
 
 export function useRouletteWebSocket(key: string | undefined) {
@@ -86,14 +87,10 @@ export function useRouletteWebSocket(key: string | undefined) {
 
 export function useSaveRouletteHistory() {
   return useMutation({
-    mutationFn: async (history: RouletteNumber[]) => {
-      const res = await fetch('/api/roulette/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ history }),
-      });
-      if (!res.ok) throw new Error('Ошибка сохранения');
-      return res.json() as Promise<{ key: string }>;
+    mutationFn: async (data: { key: string; number: RouletteNumber }) => {
+      // Используем Go backend API
+      const session = await rouletteApi.saveNumber(data.key, data.number);
+      return { key: data.key, session };
     },
   });
 }
@@ -103,9 +100,9 @@ export function useFetchRouletteHistory(key: string | undefined) {
     queryKey: ['roulette-history', key],
     queryFn: async () => {
       if (!key) throw new Error('Нет ключа');
-      const res = await fetch(`/api/roulette/${key}`);
-      if (!res.ok) throw new Error('История не найдена');
-      return res.json() as Promise<{ history: RouletteNumber[] }>;
+      // Используем Go backend API
+      const history = await rouletteApi.getHistory(key);
+      return { history };
     },
     enabled: !!key,
     refetchInterval: key ? 5000 : false,
@@ -116,13 +113,9 @@ export function usePatchRouletteHistory(key: string | undefined) {
   return useMutation({
     mutationFn: async (history: RouletteNumber[]) => {
       if (!key) throw new Error('Нет ключа');
-      const res = await fetch(`/api/roulette/${key}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ history }),
-      });
-      if (!res.ok) throw new Error('Ошибка синхронизации');
-      return res.json();
+      // Используем Go backend API
+      const session = await rouletteApi.updateHistory(key, history);
+      return session;
     },
   });
 } 
