@@ -133,6 +133,24 @@ func (m *MigrationManager) GetMigrations() []Migration {
 				DROP TABLE IF EXISTS roulette_statistics;
 			`,
 		},
+		{
+			Version:     4,
+			Description: "Add password field to roulette_sessions",
+			Up: `
+				-- Add password column to roulette_sessions table
+				ALTER TABLE roulette_sessions 
+				ADD COLUMN IF NOT EXISTS password VARCHAR(255);
+
+				-- Create index on password for faster lookups (optional)
+				CREATE INDEX IF NOT EXISTS idx_roulette_sessions_password ON roulette_sessions(password) 
+				WHERE password IS NOT NULL AND password != '';
+			`,
+			Down: `
+				-- Remove index and column
+				DROP INDEX IF EXISTS idx_roulette_sessions_password;
+				ALTER TABLE roulette_sessions DROP COLUMN IF EXISTS password;
+			`,
+		},
 	}
 }
 

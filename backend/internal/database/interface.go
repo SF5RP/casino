@@ -7,6 +7,8 @@ type RouletteRepositoryInterface interface {
 	// Session operations
 	GetSession(key string) (*models.RouletteSession, error)
 	CreateSession(key string) (*models.RouletteSession, error)
+	CreateSessionWithPassword(key, password string) (*models.RouletteSession, error)
+	ValidateSessionPassword(key, password string) (bool, error)
 	DeleteSession(key string) error
 	GetAllSessions() ([]*models.RouletteSession, error)
 

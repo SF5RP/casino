@@ -1,284 +1,98 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
-import { Box, Typography } from '@mui/material';
-import CircularProgress from '@mui/material/CircularProgress';
-import { useRouletteWebSocket } from '../components/casino/hooks/useRouletteHistory';
+import React, { useState } from 'react';
+import { Box, Typography, Button, CircularProgress, Alert } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useSnackbar } from 'notistack';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useRouletteSettings } from '../components/casino/hooks/useRouletteSettings';
-import { calculateAgeMap } from '../components/casino/utils/rouletteUtils';
-import { RouletteBoard } from '../components/casino/components/rouletteBoard/RouletteBoard';
-import { HistoryPanel } from '../components/casino/components/HistoryPanel';
-import { StatsPanel } from '../components/casino/components/statsPanel/StatsPanel';
-import { SettingsPanel } from '../components/casino/components/SettingsPanel';
-import { DetailedStatsModal } from '../components/casino/components/DetailedStatsModal';
-import { GameInfo } from '../components/casino/components/GameInfo';
-import { FloatingButtons } from '../components/casino/components/FloatingButtons';
-import { ForecastPanel } from '../components/casino/components/ForecastPanel';
-import type { SortBy, RouletteNumber } from '../components/casino/types/rouletteTypes';
+import { CreateRoomDialog } from '@/components/casino/components/CreateRoomDialog';
 
-const RouletteTrackerPageContent: React.FC = () => {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { enqueueSnackbar } = useSnackbar();
+interface Room {
+  key: string;
+  historyLength?: number;
+  createdAt?: string;
+  lastActivity?: string;
+}
 
-  // Получаем ключ (может быть undefined)
-  const key = searchParams.get('key') ?? undefined;
-
-  // ВСЕГДА вызываем хук, даже если key нет!
-  const { history, setHistory, isConnected } = useRouletteWebSocket(key);
-
-  // Все хуки должны быть выше любого return
-  const [activeLabel, setActiveLabel] = useState('');
-  const [activeGroup, setActiveGroup] = useState<number[]>([]);
-  const [showFullHistory, setShowFullHistory] = useState(false);
-  const [windowWidth, setWindowWidth] = useState(0);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [showDetailedStats, setShowDetailedStats] = useState(false);
-  const [sortBy, setSortBy] = useState<SortBy>('number');
-
-  // Отслеживаем ширину окна
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-    };
-    
-    // Устанавливаем начальную ширину
-    handleResize();
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Определяем нужно ли показывать боковое меню
-  const isWideScreen = windowWidth > 1700;
-  const shouldShowSidebar = isWideScreen && showStats;
-  
-  // Вычисляем эффективную ширину контента
-  const effectiveWidth = shouldShowSidebar ? windowWidth - 350 : windowWidth;
-
-  // Используем кастомный хук для настроек
-  const { historyRows, itemsPerRow, maxVisibleItems, updateHistoryRows } = useRouletteSettings(effectiveWidth);
-
-  // Используем useMemo для вычисления ageMap
-  const ageMap = useMemo(() => calculateAgeMap(history), [history]);
-
-  useEffect(() => {
-    if (!key) {
-      const newKey = Math.random().toString(36).substring(2, 15);
-      router.replace(`/?key=${newKey}`);
-    }
-  }, [key, router]);
-
-  // Мемоизируем обработчики событий для оптимизации
-  const resetAll = useCallback(() => {
-    setHistory([]);
-  }, [setHistory]);
-
-  const handleShare = useCallback(async () => {
-    const shareUrl = `${window.location.origin}/?key=${key}`;
-    await navigator.clipboard.writeText(shareUrl);
-    enqueueSnackbar('Ссылка скопирована! Можно делиться.', { variant: 'success' });
-  }, [key, enqueueSnackbar]);
-
-  // Мемоизируем колбэки для RouletteBoard
-  const handleSetHistory = useCallback((newHistory: React.SetStateAction<RouletteNumber[]>) => {
-    setHistory(newHistory);
-  }, [setHistory]);
-
-  const handleSetActiveLabel = useCallback((label: string) => {
-    setActiveLabel(label);
-  }, []);
-
-  const handleSetActiveGroup = useCallback((group: number[]) => {
-    setActiveGroup(group);
-  }, []);
-
-  // Только после всех хуков — return null, если ключа нет
-  if (!key) return null;
-
-  if (key && !isConnected) {
-    return (
-      <Box p={4} display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="60vh">
-        <CircularProgress />
-        <Typography mt={2}>Загрузка истории с сервера...</Typography>
-      </Box>
-    );
-  }
-
-  return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Боковое меню статистики для широких экранов */}
-      {shouldShowSidebar && (
-        <Box
-          sx={{
-            width: 350,
-            backgroundColor: '#1a1a1a',
-            borderRight: '1px solid #333',
-            position: 'fixed',
-            left: 0,
-            top: 0,
-            height: '100vh',
-            overflowY: 'auto',
-            zIndex: 1000,
-            p: 2,
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" color="white">
-              Статистика
-            </Typography>
-            <Box
-              onClick={() => setShowStats(false)}
-              sx={{
-                cursor: 'pointer',
-                color: 'white',
-                fontSize: '20px',
-                '&:hover': { color: '#ccc' }
-              }}
-            >
-              ×
-            </Box>
-          </Box>
-          <StatsPanel
-            showStats={true}
-            setShowStats={setShowStats}
-            setShowDetailedStats={setShowDetailedStats}
-            history={history}
-            isEmbedded={true}
-          />
-        </Box>
-      )}
-
-      {/* Основной контент */}
-      <Box 
-        sx={{ 
-          flex: 1,
-          marginLeft: shouldShowSidebar ? '350px' : 0,
-          transition: 'margin-left 0.3s ease',
-        }}
-      >
-        {/* Overlay для закрытия панели настроек при клике вне её */}
-        {showSettings && (
-          <Box
-            sx={{
-              position: 'fixed',
-              top: 0,
-              left: shouldShowSidebar ? 350 : 0,
-              width: shouldShowSidebar ? 'calc(100vw - 350px)' : '100vw',
-              height: '100vh',
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 999,
-            }}
-            onClick={() => setShowSettings(false)}
-          />
-        )}
-        
-        {/* Overlay для закрытия панели статистики при клике вне её (только для узких экранов) */}
-        {showStats && !isWideScreen && (
-          <Box
-            sx={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100vw',
-              height: '100vh',
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 999,
-            }}
-            onClick={() => setShowStats(false)}
-          />
-        )}
-        
-        {/* Всплывающая панель статистики для узких экранов */}
-        {!isWideScreen && (
-          <StatsPanel
-            showStats={showStats}
-            setShowStats={setShowStats}
-            setShowDetailedStats={setShowDetailedStats}
-            history={history}
-            isEmbedded={false}
-          />
-        )}
-        
-        <SettingsPanel
-          showSettings={showSettings}
-          setShowSettings={setShowSettings}
-          setShowStats={setShowStats}
-          historyRows={historyRows}
-          updateHistoryRows={updateHistoryRows}
-          itemsPerRow={itemsPerRow}
-          maxVisibleItems={maxVisibleItems}
-          historyLength={history.length}
-          showFullHistory={showFullHistory}
-          setShowFullHistory={setShowFullHistory}
-          onShare={handleShare}
-          onReset={resetAll}
-        />
-        
-        <DetailedStatsModal
-          open={showDetailedStats}
-          onClose={() => setShowDetailedStats(false)}
-          history={history}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-        />
-        
-        <Box p={4}>
-        <Typography variant="h6" mt={2} mb={1} display="flex" alignItems="center" gap={1}>
-          История выпадений:
-        </Typography>
-        
-        <HistoryPanel
-          history={history}
-          setHistory={setHistory}
-          showFullHistory={showFullHistory}
-          maxVisibleItems={maxVisibleItems}
-        />
-        
-        <Typography variant="h6" mt={4} mb={2}>
-          Статистика по ставкам (визуальное расположение):
-        </Typography>
-        
-        <RouletteBoard
-          ageMap={ageMap}
-          activeLabel={activeLabel}
-          activeGroup={activeGroup}
-          history={history}
-          setHistory={handleSetHistory}
-          setActiveLabel={handleSetActiveLabel}
-          setActiveGroup={handleSetActiveGroup}
-        />
-        
-                <GameInfo history={history} ageMap={ageMap} />
-        
-        <Box mt={4}>
-          <ForecastPanel history={history} maxPredictions={8} />
-        </Box>
-        </Box>
-      
-              <FloatingButtons
-          showStats={showStats}
-          setShowStats={setShowStats}
-          showSettings={showSettings}
-          setShowSettings={setShowSettings}
-        />
-        </Box>
-      </Box>
-    );
-};
+async function fetchRooms(): Promise<Room[]> {
+  const res = await fetch('http://localhost:8080/api/roulette/sessions');
+  if (!res.ok) throw new Error('Ошибка загрузки комнат');
+  const data = await res.json();
+  // Если сервер возвращает { sessions: [...] }
+  if (Array.isArray(data.sessions)) return data.sessions;
+  // Если сервер возвращает просто массив
+  if (Array.isArray(data)) return data;
+  return [];
+}
 
 export default function Home() {
+  const { data: rooms, isLoading, isError, refetch } = useQuery({
+    queryKey: ['rooms'],
+    queryFn: fetchRooms,
+  });
+  const router = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
+  const [isCreateRoomOpen, setCreateRoomOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleCreateRoomSubmit = async (roomKey: string, password?: string) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('http://localhost:8080/api/rooms/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: roomKey, password: password || '' }),
+      });
+
+      if (!res.ok) {
+        throw new Error((await res.json()).error || 'Не удалось создать комнату');
+      }
+
+      const { token } = await res.json();
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(`token_${roomKey}`, token);
+      }
+
+      setCreateRoomOpen(false);
+      await refetch();
+      router.push(`/room/${roomKey}`);
+      enqueueSnackbar(`Комната "${roomKey}" успешно создана!`, { variant: 'success' });
+    } catch (error: any) {
+      enqueueSnackbar(error.message, { variant: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <Suspense fallback={
-      <Box p={4} display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="60vh">
-        <CircularProgress />
-        <Typography mt={2}>Загрузка...</Typography>
+    <Box sx={{ p: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" color="white">Список кастомных комнат</Typography>
+        <Button variant="contained" color="primary" onClick={() => setCreateRoomOpen(true)}>
+          Создать комнату
+        </Button>
       </Box>
-    }>
-      <RouletteTrackerPageContent />
-    </Suspense>
+
+      {isLoading && <CircularProgress />}
+      {isError && <Alert severity="error">Ошибка загрузки комнат</Alert>}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {rooms && rooms.length > 0 ? rooms.map((room) => (
+          <Box key={room.key} sx={{ backgroundColor: '#2a2a2a', padding: 2, borderRadius: 1 }}>
+            <Typography variant="h6" color="white">Комната {room.key}</Typography>
+            {room.historyLength !== undefined && (
+              <Typography variant="body2" color="text.secondary">История: {room.historyLength} чисел</Typography>
+            )}
+            <Button variant="contained" sx={{ mt: 1 }} href={`/room/${room.key}`}>Перейти</Button>
+          </Box>
+        )) : !isLoading && <Typography color="text.secondary">Нет доступных комнат</Typography>}
+      </Box>
+
+      <CreateRoomDialog
+        open={isCreateRoomOpen}
+        onClose={() => setCreateRoomOpen(false)}
+        onSubmit={handleCreateRoomSubmit}
+        isSubmitting={isSubmitting}
+      />
+    </Box>
   );
 }

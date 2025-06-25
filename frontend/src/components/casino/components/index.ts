@@ -9,6 +9,8 @@ export { DetailedStatsModal } from './DetailedStatsModal';
 export { GameInfo } from './GameInfo';
 export { FloatingButtons } from './FloatingButtons';
 export { ForecastPanel } from './ForecastPanel';
+export { PasswordDialog } from './PasswordDialog';
+export { CreateRoomDialog } from './CreateRoomDialog';
 
 // Grouped components (still in folders)
 export { RouletteBoard } from './rouletteBoard/RouletteBoard';
@@ -17,4 +19,5 @@ export { StatsPanel } from './statsPanel/StatsPanel';
 export { ColorAnalysis } from './statsPanel/ColorAnalysis';
 export { SectorAnalysis } from './statsPanel/SectorAnalysis';
 export { RowAnalysis } from './statsPanel/RowAnalysis';
-export { EvenOddAnalysis } from './statsPanel/EvenOddAnalysis'; 
+export { EvenOddAnalysis } from './statsPanel/EvenOddAnalysis';
+export { ConnectionStatus } from './ConnectionStatus'; 

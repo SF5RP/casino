@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
-import { findRepeats } from '../utils/rouletteUtils';
-import type { RouletteNumber, AgeMap, RepeatSeries } from '../types/rouletteTypes';
+import type { RouletteNumber, AgeMap } from '../types/rouletteTypes';
 
 interface GameInfoProps {
   history: RouletteNumber[];
@@ -22,9 +21,6 @@ export const GameInfo: React.FC<GameInfoProps> = ({ history, ageMap }) => {
 
   // Простая проверка повтора - не нужно мемоизировать
   const hasRecentRepeat = history.length >= 2 && history[history.length - 1] === history[history.length - 2];
-
-  // Мемоизируем повторы только если история изменилась
-  const repeats = useMemo(() => findRepeats(history), [history]);
 
   return (
     <Box>
@@ -79,34 +75,7 @@ export const GameInfo: React.FC<GameInfoProps> = ({ history, ageMap }) => {
         </Box>
       )}
 
-      {/* История повторов */}
-      {repeats.length > 0 && (
-        <Box mt={2} mb={2}>
-          <Typography variant="subtitle1" fontWeight={700} color="#fff">
-            История повторов:
-          </Typography>
-          <Box display="flex" flexDirection="column" gap={1}>
-            {repeats.slice().reverse().map((r: RepeatSeries, idx: number) => (
-              <Box 
-                key={idx} 
-                sx={{ 
-                  px: 2, 
-                  py: 1, 
-                  borderRadius: 1, 
-                  background: '#14532d', 
-                  color: '#fff', 
-                  fontWeight: 'bold', 
-                  fontSize: 16, 
-                  border: '2px solid #ffe066', 
-                  display: 'inline-block' 
-                }}
-              >
-                {r.value} — {r.length} раза подряд (начиная с {r.start}-й ставки)
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      )}
+
     </Box>
   );
 }; 

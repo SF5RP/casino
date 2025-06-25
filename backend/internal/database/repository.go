@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"casino-backend/internal/models"
@@ -18,26 +19,43 @@ func NewRouletteRepository(db *DB) *RouletteRepository {
 	return &RouletteRepository{db: db}
 }
 
-// CreateSession creates a new roulette session
+// CreateSession creates a new roulette session without password
 func (r *RouletteRepository) CreateSession(key string) (*models.RouletteSession, error) {
+	return r.CreateSessionWithPassword(key, "")
+}
+
+// CreateSessionWithPassword creates a new roulette session with password
+func (r *RouletteRepository) CreateSessionWithPassword(key, password string) (*models.RouletteSession, error) {
 	query := `
-		INSERT INTO roulette_sessions (key, created_at, updated_at)
-		VALUES ($1, $2, $2)
-		ON CONFLICT (key) DO UPDATE SET updated_at = $2
-		RETURNING id, key, created_at, updated_at
+		INSERT INTO roulette_sessions (key, password, created_at, updated_at)
+		VALUES ($1, $2, $3, $3)
+		ON CONFLICT (key) DO UPDATE SET
+			password = CASE
+				WHEN roulette_sessions.password = '' AND EXCLUDED.password != '' THEN EXCLUDED.password
+				ELSE roulette_sessions.password
+			END,
+			updated_at = EXCLUDED.updated_at
+		RETURNING id, key, password, created_at, updated_at
 	`
 
 	now := time.Now()
 	var session models.RouletteSession
 
-	err := r.db.QueryRow(query, key, now).Scan(
+	err := r.db.QueryRow(query, key, password, now).Scan(
 		&session.ID,
 		&session.Key,
+		&session.Password,
 		&session.CreatedAt,
 		&session.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
+	}
+
+	// Выводим лог, если сессия была только что создана (а не обновлена)
+	// Проверяем, что разница между created_at и updated_at очень маленькая
+	if session.UpdatedAt.Sub(session.CreatedAt) < time.Millisecond*100 {
+		log.Printf("[DB] CREATED NEW SESSION. Key: '%s', Password: '%s'", key, password)
 	}
 
 	// Load existing history
@@ -50,18 +68,44 @@ func (r *RouletteRepository) CreateSession(key string) (*models.RouletteSession,
 	return &session, nil
 }
 
+// ValidateSessionPassword validates password for a session
+func (r *RouletteRepository) ValidateSessionPassword(key, password string) (bool, error) {
+	query := `SELECT password FROM roulette_sessions WHERE key = $1`
+	
+	var storedPassword sql.NullString
+	err := r.db.QueryRow(query, key).Scan(&storedPassword)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Если сессии не существует, но пароль предоставлен - это попытка создать защищенную сессию
+			// Если пароля нет - это попытка подключиться к несуществующей сессии (разрешаем создание без пароля)
+			return password == "", nil
+		}
+		return false, fmt.Errorf("failed to get session password: %w", err)
+	}
+
+	// Если у сессии нет пароля, доступ свободный
+	if !storedPassword.Valid || storedPassword.String == "" {
+		return true, nil
+	}
+
+	// Проверяем пароль
+	return storedPassword.String == password, nil
+}
+
 // GetSession retrieves a session by key
 func (r *RouletteRepository) GetSession(key string) (*models.RouletteSession, error) {
 	query := `
-		SELECT id, key, created_at, updated_at
+		SELECT id, key, password, created_at, updated_at
 		FROM roulette_sessions
 		WHERE key = $1
 	`
 
 	var session models.RouletteSession
+	var password sql.NullString
 	err := r.db.QueryRow(query, key).Scan(
 		&session.ID,
 		&session.Key,
+		&password,
 		&session.CreatedAt,
 		&session.UpdatedAt,
 	)
@@ -70,6 +114,10 @@ func (r *RouletteRepository) GetSession(key string) (*models.RouletteSession, er
 			return nil, nil // Session not found
 		}
 		return nil, fmt.Errorf("failed to get session: %w", err)
+	}
+
+	if password.Valid {
+		session.Password = password.String
 	}
 
 	// Load history

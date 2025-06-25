@@ -9,6 +9,7 @@ type RouletteNumber interface{}
 type RouletteSession struct {
 	ID        int              `json:"id"`
 	Key       string           `json:"key"`
+	Password  string           `json:"password,omitempty"` // Пароль для входа в комнату
 	History   []RouletteNumber `json:"history"`
 	CreatedAt time.Time        `json:"created_at"`
 	UpdatedAt time.Time        `json:"updated_at"`
@@ -25,7 +26,8 @@ type RouletteNumberRecord struct {
 
 // CreateSessionRequest represents request to create session
 type CreateSessionRequest struct {
-	Key string `json:"key"`
+	Key      string `json:"key"`
+	Password string `json:"password,omitempty"` // Опциональный пароль
 }
 
 // SaveNumberRequest represents the request to save a number
@@ -51,9 +53,11 @@ type APIResponse struct {
 
 // WSMessage represents a WebSocket message
 type WSMessage struct {
-	Type    string           `json:"type"`
-	Key     string           `json:"key,omitempty"`
-	Number  RouletteNumber   `json:"number,omitempty"`
-	History []RouletteNumber `json:"history,omitempty"`
-	Data    interface{}      `json:"data,omitempty"`
+	Type     string           `json:"type"`
+	Key      string           `json:"key"`
+	Token    string           `json:"token,omitempty"`
+	History  []RouletteNumber `json:"history,omitempty"`
+	Number   *RouletteNumber  `json:"number,omitempty"`
+	Error    string           `json:"error,omitempty"`
+	Password string           `json:"password,omitempty"` // Пароль для авторизации
 } 

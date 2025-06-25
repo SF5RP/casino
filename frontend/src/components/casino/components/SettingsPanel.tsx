@@ -14,6 +14,7 @@ interface SettingsPanelProps {
   setShowFullHistory: (show: boolean) => void;
   onShare: () => void;
   onReset: () => void;
+  onDeleteLast?: () => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -29,6 +30,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setShowFullHistory,
   onShare,
   onReset,
+  onDeleteLast,
 }) => (
   <Box 
     sx={{
@@ -68,8 +70,23 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           type="number"
           value={historyRows}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            const value = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
-            updateHistoryRows(value);
+            const inputValue = e.target.value;
+            // Разрешаем пустое поле для редактирования
+            if (inputValue === '') {
+              return;
+            }
+            const numValue = parseInt(inputValue);
+            if (!isNaN(numValue)) {
+              const value = Math.max(1, Math.min(10, numValue));
+              updateHistoryRows(value);
+            }
+          }}
+          onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+            // При потере фокуса, если поле пустое, устанавливаем минимальное значение
+            const inputValue = e.target.value;
+            if (inputValue === '' || isNaN(parseInt(inputValue))) {
+              updateHistoryRows(1);
+            }
           }}
           inputProps={{ min: 1, max: 10 }}
           size="small"
@@ -131,6 +148,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         
         <Button
           variant="outlined"
+          onClick={() => {
+            window.open('/admin', '_blank');
+          }}
+          sx={{ 
+            color: 'white', 
+            borderColor: '#ff9800',
+            '&:hover': { borderColor: '#ffc107' }
+          }}
+        >
+          🔧 Админ-панель
+        </Button>
+        
+        <Button
+          variant="outlined"
           onClick={onShare}
           sx={{ 
             color: 'white', 
@@ -140,6 +171,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         >
           Поделиться
         </Button>
+        
+        {onDeleteLast && historyLength > 0 && (
+          <Button
+            variant="outlined"
+            onClick={onDeleteLast}
+            sx={{ 
+              color: '#ff5858', 
+              borderColor: '#ff5858',
+              '&:hover': { borderColor: '#ff3030' }
+            }}
+          >
+            🗑️ Удалить последнее
+          </Button>
+        )}
         
         <Button
           variant="outlined"

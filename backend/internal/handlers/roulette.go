@@ -4,20 +4,101 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"casino-backend/internal/database"
 	"casino-backend/internal/models"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 )
 
 type RouletteHandler struct {
-	repo database.RouletteRepositoryInterface
+	repo      database.RouletteRepositoryInterface
+	jwtSecret []byte
 }
 
 // NewRouletteHandler creates a new roulette handler
-func NewRouletteHandler(repo database.RouletteRepositoryInterface) *RouletteHandler {
-	return &RouletteHandler{repo: repo}
+func NewRouletteHandler(repo database.RouletteRepositoryInterface, jwtSecret string) *RouletteHandler {
+	return &RouletteHandler{
+		repo:      repo,
+		jwtSecret: []byte(jwtSecret),
+	}
+}
+
+// RegisterRoutes регистрирует маршруты для рулетки
+func (h *RouletteHandler) RegisterRoutes(r *mux.Router) {
+	r.HandleFunc("/roulette/sessions", h.GetSessions).Methods("GET", "OPTIONS")
+	r.HandleFunc("/rooms/auth", h.AuthenticateRoom).Methods("POST", "OPTIONS")
+	r.HandleFunc("/roulette/save", h.SaveNumber).Methods("POST", "OPTIONS")
+	r.HandleFunc("/roulette/{key}", h.GetHistory).Methods("GET", "OPTIONS")
+	r.HandleFunc("/roulette/{key}", h.UpdateHistory).Methods("PUT", "OPTIONS")
+}
+
+// AuthenticateRoom handles creation and authentication for rooms
+func (h *RouletteHandler) AuthenticateRoom(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var req struct {
+		Key      string `json:"key"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Key == "" {
+		http.Error(w, "Key is required", http.StatusBadRequest)
+		return
+	}
+
+	session, err := h.repo.GetSession(req.Key)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if session == nil {
+		// Сессия не найдена, создаем новую
+		if _, err := h.repo.CreateSessionWithPassword(req.Key, req.Password); err != nil {
+			http.Error(w, "Failed to create session", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Сессия существует, проверяем пароль
+		if session.Password != "" {
+			valid, err := h.repo.ValidateSessionPassword(req.Key, req.Password)
+			if err != nil || !valid {
+				http.Error(w, "Invalid password", http.StatusUnauthorized)
+				return
+			}
+		}
+	}
+
+	// Генерируем JWT токен
+	claims := jwt.MapClaims{
+		"key": req.Key,
+		"exp": time.Now().Add(time.Hour * 24).Unix(), // Токен живет 24 часа
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(h.jwtSecret)
+	if err != nil {
+		http.Error(w, "Failed to create token", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
 }
 
 // GetHistory handles GET /api/roulette/{key}

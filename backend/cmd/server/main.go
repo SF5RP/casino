@@ -34,58 +34,32 @@ func main() {
 		log.Println("No .env file found, using default values")
 	}
 
-	// Initialize repository with fallback
 	var repo database.RouletteRepositoryInterface
-	var repoInfo string
-	var dbConnection *database.DB
-
-	// Try to connect to PostgreSQL first
 	db, err := database.Connect()
 	if err != nil {
-		log.Printf("Failed to connect to PostgreSQL: %v", err)
-		log.Println("Falling back to in-memory storage...")
-		
-		// Use in-memory repository as fallback
-		memRepo := database.NewMemoryRepository()
-		repo = memRepo
-		repoInfo = "In-Memory Storage (PostgreSQL unavailable)"
+		log.Printf("⚠️ Could not connect to database, falling back to in-memory store: %v", err)
+		repo = database.NewMemoryRepository()
 	} else {
+		log.Println("✅ Successfully connected to the database")
+		defer db.Close()
+
 		// Test database connection
 		if err := db.Ping(); err != nil {
-			log.Printf("Database connection test failed: %v", err)
-			log.Println("Falling back to in-memory storage...")
-			db.Close()
-			
-			// Use in-memory repository as fallback
-			memRepo := database.NewMemoryRepository()
-			repo = memRepo
-			repoInfo = "In-Memory Storage (PostgreSQL connection failed)"
+			log.Printf("Database connection test failed, falling back to in-memory store: %v", err)
+			repo = database.NewMemoryRepository()
 		} else {
 			// Run database migrations
 			if err := db.RunMigrations(); err != nil {
-				log.Printf("Failed to run database migrations: %v", err)
-				log.Println("Falling back to in-memory storage...")
-				db.Close()
-				
-				// Use in-memory repository as fallback
-				memRepo := database.NewMemoryRepository()
-				repo = memRepo
-				repoInfo = "In-Memory Storage (PostgreSQL migrations failed)"
+				log.Printf("Failed to run database migrations, falling back to in-memory store: %v", err)
+				repo = database.NewMemoryRepository()
 			} else {
-				// PostgreSQL is working fine
-				pgRepo := database.NewRouletteRepository(db)
-				repo = pgRepo
-				repoInfo = "PostgreSQL Database"
-				dbConnection = db
-				
-				// Ensure cleanup on shutdown
-				defer db.Close()
+				log.Println("✅ Database migrations completed successfully")
+				repo = database.NewRouletteRepository(db)
 			}
 		}
 	}
 
-	log.Printf("Repository initialized: %s", repoInfo)
-	log.Printf("Repository info: %s", repo.Info())
+	log.Printf("Using repository: %s", repo.Info())
 
 	// Start periodic health check
 	go func() {
@@ -102,42 +76,31 @@ func main() {
 		}
 	}()
 
-	// Create handlers
-	rouletteHandler := handlers.NewRouletteHandler(repo)
-	migrationsHandler := handlers.NewMigrationsHandler(dbConnection)
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "your-default-super-secret-key-for-dev" // НЕ ИСПОЛЬЗОВАТЬ В ПРОДЕ
+		log.Println("⚠️ JWT_SECRET not set, using default insecure key")
+	}
 
 	// Create WebSocket hub
-	wsHub := websocket.NewHub(repo)
+	wsHub := websocket.NewHub(repo, []byte(jwtSecret))
 	go wsHub.Run()
+
+	// Create handlers
+	rouletteHandler := handlers.NewRouletteHandler(repo, jwtSecret)
+	adminHandler := handlers.NewAdminHandler(repo, wsHub)
 
 	// Setup routes
 	router := mux.NewRouter()
 
 	// API routes
 	api := router.PathPrefix("/api").Subrouter()
-	
-	// Roulette API routes
-	roulette := api.PathPrefix("/roulette").Subrouter()
-	roulette.HandleFunc("/save", rouletteHandler.SaveNumber).Methods("POST")
-	roulette.HandleFunc("/sessions", rouletteHandler.GetSessions).Methods("GET")
-	roulette.HandleFunc("/{key}", rouletteHandler.GetHistory).Methods("GET")
-	roulette.HandleFunc("/{key}", rouletteHandler.UpdateHistory).Methods("PUT")
-	
-	// Migrations API routes
-	migrations := api.PathPrefix("/migrations").Subrouter()
-	migrations.HandleFunc("/status", migrationsHandler.GetMigrationStatus).Methods("GET")
-	migrations.HandleFunc("/list", migrationsHandler.GetAvailableMigrations).Methods("GET")
-	migrations.HandleFunc("/up", migrationsHandler.RunMigrations).Methods("POST")
-	migrations.HandleFunc("/down/{steps}", migrationsHandler.RollbackMigrations).Methods("POST")
-	
-	// Handle preflight OPTIONS requests
-	router.HandleFunc("/api/roulette/save", rouletteHandler.HandleOptions).Methods("OPTIONS")
-	router.HandleFunc("/api/roulette/sessions", rouletteHandler.HandleOptions).Methods("OPTIONS")
-	router.HandleFunc("/api/roulette/{key}", rouletteHandler.HandleOptions).Methods("OPTIONS")
-	router.HandleFunc("/api/migrations/status", migrationsHandler.HandleOptions).Methods("OPTIONS")
-	router.HandleFunc("/api/migrations/list", migrationsHandler.HandleOptions).Methods("OPTIONS")
-	router.HandleFunc("/api/migrations/up", migrationsHandler.HandleOptions).Methods("OPTIONS")
-	router.HandleFunc("/api/migrations/down/{steps}", migrationsHandler.HandleOptions).Methods("OPTIONS")
+
+	// Register roulette routes
+	rouletteHandler.RegisterRoutes(api)
+
+	// Admin API routes
+	adminHandler.RegisterAdminRoutes(router)
 
 	// WebSocket route
 	router.HandleFunc("/ws", wsHub.HandleWebSocket)
@@ -164,12 +127,12 @@ func main() {
 			"status":     overallStatus,
 			"timestamp":  time.Now().UTC().Format(time.RFC3339),
 			"repository": repoStats,
-			"info":       repoInfo,
+			"info":       repo.Info(),
 		}
 		
 		// Add migration status if database is available
-		if dbConnection != nil {
-			if migrationStatus, err := dbConnection.GetMigrationStatus(); err == nil {
+		if db != nil {
+			if migrationStatus, err := db.GetMigrationStatus(); err == nil {
 				response["migrations"] = migrationStatus
 			}
 		}
@@ -203,7 +166,6 @@ func main() {
 	log.Printf("WebSocket endpoint: ws://localhost:%s/ws", port)
 	log.Printf("API endpoint: http://localhost:%s/api", port)
 	log.Printf("Health check: http://localhost:%s/health", port)
-	log.Printf("Migrations API: http://localhost:%s/api/migrations", port)
 
 	// Setup graceful shutdown
 	c := make(chan os.Signal, 1)

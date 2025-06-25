@@ -1,13 +1,19 @@
 package websocket
 
 import (
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
+	"sync"
+	"time"
 
 	"casino-backend/internal/database"
 	"casino-backend/internal/models"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 )
 
@@ -34,6 +40,29 @@ type Hub struct {
 
 	// Repository for database operations
 	repo database.RouletteRepositoryInterface
+	
+	// Session tracking for admin panel
+	sessions map[string]*SessionData
+	mu       sync.RWMutex
+	jwtSecret []byte
+}
+
+// ClientInfo содержит метаданные о клиенте для админ-панели
+type ClientInfo struct {
+	ID           string    `json:"id"`
+	ConnectedAt  time.Time `json:"connectedAt"`
+	LastActivity time.Time `json:"lastActivity"`
+	Status       string    `json:"status"`
+	IPAddress    string    `json:"ipAddress"`
+	UserAgent    string    `json:"userAgent"`
+	SessionKey   string    `json:"sessionKey"`
+}
+
+// SessionData содержит данные сессии для админ-панели
+type SessionData struct {
+	CreatedAt    time.Time              `json:"createdAt"`
+	LastActivity time.Time              `json:"lastActivity"`
+	Connections  map[string]*ClientInfo `json:"connections"`
 }
 
 // Client is a middleman between the websocket connection and the hub
@@ -45,16 +74,21 @@ type Client struct {
 
 	// Buffered channel of outbound messages
 	send chan []byte
+	
+	// Client metadata
+	info *ClientInfo
 }
 
 // NewHub creates a new WebSocket hub
-func NewHub(repo database.RouletteRepositoryInterface) *Hub {
+func NewHub(repo database.RouletteRepositoryInterface, jwtSecret []byte) *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		repo:       repo,
+		jwtSecret:  jwtSecret,
+		sessions:   make(map[string]*SessionData),
 	}
 }
 
@@ -70,6 +104,12 @@ func (h *Hub) Run() {
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
+				
+				// Обновляем статус клиента в сессии
+				if client.info != nil {
+					client.info.Status = "disconnected"
+				}
+				
 				log.Println("Client disconnected")
 			}
 
@@ -94,10 +134,23 @@ func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Создаем информацию о клиенте
+	clientInfo := &ClientInfo{
+		ID:           generateClientID(),
+		ConnectedAt:  time.Now(),
+		LastActivity: time.Now(),
+		Status:       "connected",
+		IPAddress:    getClientIP(r),
+		UserAgent:    r.Header.Get("User-Agent"),
+	}
+
+	log.Printf("[WS] New client connected: %s from %s", clientInfo.ID, clientInfo.IPAddress)
+
 	client := &Client{
 		hub:  h,
 		conn: conn,
 		send: make(chan []byte, 256),
+		info: clientInfo,
 	}
 
 	client.hub.register <- client
@@ -190,8 +243,7 @@ func (c *Client) handleMessage(message models.WSMessage) (*models.WSMessage, err
 	case "updateHistory":
 		return c.handleUpdateHistory(message)
 	default:
-		log.Printf("Unknown message type: %s", message.Type)
-		return nil, nil
+		return nil, fmt.Errorf("unknown message type: %s", message.Type)
 	}
 }
 
@@ -218,6 +270,23 @@ func (c *Client) handleGetHistory(message models.WSMessage) (*models.WSMessage, 
 
 // handleSaveNumber handles saveNumber WebSocket messages
 func (c *Client) handleSaveNumber(message models.WSMessage) (*models.WSMessage, error) {
+	// Проверяем авторизацию
+	isValid, err := c.hub.repo.ValidateSessionPassword(message.Key, message.Password)
+	if err != nil {
+		return &models.WSMessage{
+			Type:  "error",
+			Error: "Ошибка проверки пароля",
+		}, nil
+	}
+	
+	if !isValid {
+		return &models.WSMessage{
+			Type:  "authRequired",
+			Key:   message.Key,
+			Error: "Неверный пароль",
+		}, nil
+	}
+
 	session, err := c.hub.repo.AddNumberToSession(message.Key, message.Number)
 	if err != nil {
 		return nil, err
@@ -233,6 +302,23 @@ func (c *Client) handleSaveNumber(message models.WSMessage) (*models.WSMessage, 
 
 // handleUpdateHistory handles updateHistory WebSocket messages
 func (c *Client) handleUpdateHistory(message models.WSMessage) (*models.WSMessage, error) {
+	// Проверяем авторизацию
+	isValid, err := c.hub.repo.ValidateSessionPassword(message.Key, message.Password)
+	if err != nil {
+		return &models.WSMessage{
+			Type:  "error",
+			Error: "Ошибка проверки пароля",
+		}, nil
+	}
+	
+	if !isValid {
+		return &models.WSMessage{
+			Type:  "authRequired",
+			Key:   message.Key,
+			Error: "Неверный пароль",
+		}, nil
+	}
+
 	session, err := c.hub.repo.UpdateSessionHistory(message.Key, message.History)
 	if err != nil {
 		return nil, err
@@ -247,28 +333,73 @@ func (c *Client) handleUpdateHistory(message models.WSMessage) (*models.WSMessag
 
 // handleJoin handles join WebSocket messages (when client connects to a session)
 func (c *Client) handleJoin(message models.WSMessage) (*models.WSMessage, error) {
+	log.Printf("[WS] Client %s joining session %s", c.info.ID, message.Key)
+
 	session, err := c.hub.repo.GetSession(message.Key)
 	if err != nil {
+		log.Printf("[WS] Error getting session %s: %v", message.Key, err)
 		return nil, err
 	}
-
-	var history []models.RouletteNumber
-	if session != nil {
-		history = session.History
-	} else {
-		history = []models.RouletteNumber{}
+	if session == nil {
+		log.Printf("[WS] Session %s not found", message.Key)
+		return &models.WSMessage{Type: "error", Error: "Комната не найдена"}, nil
 	}
 
-	// Send sync message with current history
+	// Если сессия защищена паролем, проверяем токен
+	if session.Password != "" {
+		if message.Token == "" {
+			return &models.WSMessage{Type: "authRequired", Key: message.Key, Error: "Требуется токен"}, nil
+		}
+
+		// Парсим и валидируем токен
+		token, err := jwt.Parse(message.Token, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return c.hub.jwtSecret, nil
+		})
+
+		if err != nil || !token.Valid {
+			log.Printf("[WS] Invalid token for session %s: %v", message.Key, err)
+			return &models.WSMessage{Type: "authRequired", Key: message.Key, Error: "Неверный или просроченный токен"}, nil
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok || claims["key"] != message.Key {
+			log.Printf("[WS] Token claim 'key' does not match session key for %s", message.Key)
+			return &models.WSMessage{Type: "authRequired", Key: message.Key, Error: "Неверный токен"}, nil
+		}
+	}
+
+	// Авторизация пройдена
+	c.hub.updateClientSession(c, message.Key)
+
 	return &models.WSMessage{
 		Type:    "sync",
 		Key:     message.Key,
-		History: history,
+		History: session.History,
 	}, nil
 }
 
 // handleUpdate handles update WebSocket messages (when client updates history)
 func (c *Client) handleUpdate(message models.WSMessage) (*models.WSMessage, error) {
+	// Проверяем авторизацию
+	isValid, err := c.hub.repo.ValidateSessionPassword(message.Key, message.Password)
+	if err != nil {
+		return &models.WSMessage{
+			Type:  "error",
+			Error: "Ошибка проверки пароля",
+		}, nil
+	}
+	
+	if !isValid {
+		return &models.WSMessage{
+			Type:  "authRequired",
+			Key:   message.Key,
+			Error: "Неверный пароль",
+		}, nil
+	}
+
 	session, err := c.hub.repo.UpdateSessionHistory(message.Key, message.History)
 	if err != nil {
 		return nil, err
@@ -280,4 +411,94 @@ func (c *Client) handleUpdate(message models.WSMessage) (*models.WSMessage, erro
 		Key:     message.Key,
 		History: session.History,
 	}, nil
+}
+
+// Вспомогательные функции для админ-панели
+
+// generateClientID генерирует уникальный ID для клиента
+func generateClientID() string {
+	b := make([]byte, 8)
+	rand.Read(b)
+	return fmt.Sprintf("client_%x", b)
+}
+
+// getClientIP получает IP адрес клиента
+func getClientIP(r *http.Request) string {
+	// Проверяем заголовки прокси
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		return strings.Split(ip, ",")[0]
+	}
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	return r.RemoteAddr
+}
+
+// GetSessionsData возвращает данные всех сессий для админ-панели
+func (h *Hub) GetSessionsData() map[string]*SessionData {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	
+	log.Printf("[HUB] GetSessionsData called, have %d sessions in memory", len(h.sessions))
+	
+	result := make(map[string]*SessionData)
+	for key, session := range h.sessions {
+		log.Printf("[HUB] Session %s: %d connections, created at %v", key, len(session.Connections), session.CreatedAt)
+		result[key] = session
+	}
+	
+	log.Printf("[HUB] Returning %d sessions to admin", len(result))
+	return result
+}
+
+// DisconnectClient принудительно отключает клиента по ID
+func (h *Hub) DisconnectClient(clientID string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	
+	// Ищем клиента по ID
+	for client := range h.clients {
+		if client.info.ID == clientID {
+			// Обновляем статус
+			client.info.Status = "disconnected"
+			
+			// Отключаем клиента
+			close(client.send)
+			client.conn.Close()
+			delete(h.clients, client)
+			
+			log.Printf("Admin disconnected client: %s", clientID)
+			return nil
+		}
+	}
+	
+	return fmt.Errorf("client not found: %s", clientID)
+}
+
+// updateClientSession обновляет информацию о сессии клиента
+func (h *Hub) updateClientSession(client *Client, sessionKey string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	
+	log.Printf("[HUB] updateClientSession called for client %s and session %s", client.info.ID, sessionKey)
+	
+	// Обновляем ключ сессии в информации о клиенте
+	client.info.SessionKey = sessionKey
+	client.info.LastActivity = time.Now()
+	
+	// Создаем или обновляем данные сессии
+	if _, exists := h.sessions[sessionKey]; !exists {
+		log.Printf("[HUB] Creating new session data for %s", sessionKey)
+		h.sessions[sessionKey] = &SessionData{
+			CreatedAt:    time.Now(),
+			LastActivity: time.Now(),
+			Connections:  make(map[string]*ClientInfo),
+		}
+	}
+	
+	// Добавляем клиента к сессии
+	h.sessions[sessionKey].Connections[client.info.ID] = client.info
+	h.sessions[sessionKey].LastActivity = time.Now()
+	
+	log.Printf("[HUB] Session %s now has %d connections", sessionKey, len(h.sessions[sessionKey].Connections))
 } 

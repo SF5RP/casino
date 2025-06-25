@@ -3,6 +3,7 @@ package database
 import (
 	"casino-backend/internal/models"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -41,20 +42,32 @@ func (r *MemoryRepository) GetSession(key string) (*models.RouletteSession, erro
 	return &sessionCopy, nil
 }
 
-// CreateSession creates a new session
+// CreateSession creates a new session without password
 func (r *MemoryRepository) CreateSession(key string) (*models.RouletteSession, error) {
+	return r.CreateSessionWithPassword(key, "")
+}
+
+// CreateSessionWithPassword creates a new session with password
+func (r *MemoryRepository) CreateSessionWithPassword(key, password string) (*models.RouletteSession, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
 	// Check if session already exists
-	if _, exists := r.sessions[key]; exists {
-		return r.sessions[key], nil
+	if existingSession, exists := r.sessions[key]; exists {
+		// Если сессия существует, но у нее нет пароля, а новый пароль предоставлен - обновляем.
+		if existingSession.Password == "" && password != "" {
+			existingSession.Password = password
+			existingSession.UpdatedAt = time.Now()
+		}
+		return existingSession, nil
 	}
 
 	// Create new session
+	log.Printf("[MEMORY_DB] CREATED NEW SESSION. Key: '%s', Password: '%s'", key, password)
 	session := &models.RouletteSession{
 		ID:        r.nextID,
 		Key:       key,
+		Password:  password,
 		History:   []models.RouletteNumber{},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -64,6 +77,28 @@ func (r *MemoryRepository) CreateSession(key string) (*models.RouletteSession, e
 	r.nextID++
 
 	return session, nil
+}
+
+// ValidateSessionPassword validates password for a session
+func (r *MemoryRepository) ValidateSessionPassword(key, password string) (bool, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	session, exists := r.sessions[key]
+	
+	if !exists {
+		// Если сессии не существует, но пароль предоставлен - это попытка создать защищенную сессию
+		// Если пароля нет - это попытка подключиться к несуществующей сессии (разрешаем создание без пароля)
+		return password == "", nil
+	}
+
+	// Если у сессии нет пароля, доступ свободный
+	if session.Password == "" {
+		return true, nil
+	}
+
+	// Проверяем пароль
+	return session.Password == password, nil
 }
 
 // AddNumberToSession adds a number to a session
