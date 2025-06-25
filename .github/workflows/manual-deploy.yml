@@ -1,0 +1,200 @@
+name: Manual Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - staging
+        - development
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'main'
+        type: string
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        default: false
+        type: boolean
+      force_deploy:
+        description: 'Force deployment (ignore health checks)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GO_VERSION: '1.21'
+  BINARY_NAME: 'casino-server'
+
+jobs:
+  deploy:
+    name: Manual Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.branch }}
+        
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('go-backend/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Build application
+      working-directory: go-backend
+      run: |
+        go mod download
+        go mod tidy
+        CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ${{ env.BINARY_NAME }} ./cmd/server/main.go
+        
+    - name: Run tests
+      if: ${{ !inputs.skip_tests }}
+      working-directory: go-backend
+      run: go test ./...
+      
+    - name: Create deployment package
+      working-directory: go-backend
+      run: |
+        mkdir -p dist/casino-backend
+        cp ${{ env.BINARY_NAME }} dist/casino-backend/
+        cp -r deploy dist/casino-backend/
+        cp env.example dist/casino-backend/
+        cp README.md dist/casino-backend/
+        cp DEPLOYMENT.md dist/casino-backend/
+        
+        # Add deployment metadata
+        echo "DEPLOY_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" > dist/casino-backend/deploy-info.txt
+        echo "DEPLOY_BRANCH=${{ inputs.branch }}" >> dist/casino-backend/deploy-info.txt
+        echo "DEPLOY_COMMIT=${{ github.sha }}" >> dist/casino-backend/deploy-info.txt
+        echo "DEPLOY_ENVIRONMENT=${{ inputs.environment }}" >> dist/casino-backend/deploy-info.txt
+        echo "DEPLOY_ACTOR=${{ github.actor }}" >> dist/casino-backend/deploy-info.txt
+        
+        tar -czf casino-backend-deploy.tar.gz -C dist casino-backend/
+        
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        # Use different host based on environment
+        if [ "${{ inputs.environment }}" == "staging" ]; then
+          HOST="${{ secrets.STAGING_SERVER_HOST }}"
+          USER="${{ secrets.STAGING_SERVER_USER }}"
+        elif [ "${{ inputs.environment }}" == "development" ]; then
+          HOST="${{ secrets.DEV_SERVER_HOST }}"
+          USER="${{ secrets.DEV_SERVER_USER }}"
+        else
+          HOST="${{ secrets.SERVER_HOST }}"
+          USER="${{ secrets.SERVER_USER }}"
+        fi
+        
+        echo "DEPLOY_HOST=$HOST" >> $GITHUB_ENV
+        echo "DEPLOY_USER=$USER" >> $GITHUB_ENV
+        
+        ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
+        
+    - name: Deploy to server
+      run: |
+        echo "🚀 Deploying to ${{ inputs.environment }} environment..."
+        echo "📍 Server: ${{ env.DEPLOY_HOST }}"
+        echo "👤 User: ${{ env.DEPLOY_USER }}"
+        echo "🌿 Branch: ${{ inputs.branch }}"
+        echo "📝 Commit: ${{ github.sha }}"
+        
+        # Copy deployment package to server
+        scp -i ~/.ssh/id_rsa casino-backend-deploy.tar.gz ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:~/
+        
+        # Execute deployment commands on server
+        ssh -i ~/.ssh/id_rsa ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} << 'EOF'
+          echo "📦 Extracting deployment package..."
+          tar -xzf casino-backend-deploy.tar.gz
+          cd casino-backend
+          
+          echo "📋 Deployment info:"
+          cat deploy-info.txt
+          
+          echo "🔄 Running update script..."
+          sudo ./deploy/scripts/update.sh
+          
+          echo "✅ Verifying deployment..."
+          sleep 5
+          if sudo systemctl is-active --quiet casino-backend; then
+            echo "✅ Service is running!"
+            sudo systemctl status casino-backend --no-pager -l
+          else
+            echo "❌ Service failed to start!"
+            sudo journalctl -u casino-backend -n 30 --no-pager
+            exit 1
+          fi
+          
+          echo "🧹 Cleaning up..."
+          rm -f ~/casino-backend-deploy.tar.gz
+          rm -rf ~/casino-backend
+        EOF
+        
+    - name: Health check
+      if: ${{ !inputs.force_deploy }}
+      run: |
+        echo "🏥 Running health checks..."
+        sleep 10
+        
+        # Determine port based on environment
+        if [ "${{ inputs.environment }}" == "staging" ]; then
+          PORT="8081"
+        elif [ "${{ inputs.environment }}" == "development" ]; then
+          PORT="8082"
+        else
+          PORT="8080"
+        fi
+        
+        # Health check
+        if curl -f -m 30 http://${{ env.DEPLOY_HOST }}:$PORT/health; then
+          echo "✅ Health check passed!"
+        else
+          echo "❌ Health check failed!"
+          exit 1
+        fi
+        
+        # API test
+        if curl -f -m 30 http://${{ env.DEPLOY_HOST }}:$PORT/api/roulette/sessions; then
+          echo "✅ API test passed!"
+        else
+          echo "❌ API test failed!"
+          exit 1
+        fi
+        
+    - name: Deployment summary
+      if: always()
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch**: ${{ inputs.branch }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Actor**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Time**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ **Deployment completed successfully!**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Deployment failed!**" >> $GITHUB_STEP_SUMMARY 

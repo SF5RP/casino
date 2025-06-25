@@ -1,0 +1,145 @@
+name: Deploy Casino Backend
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'go-backend/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - staging
+
+env:
+  GO_VERSION: '1.21'
+  BINARY_NAME: 'casino-server'
+
+jobs:
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('go-backend/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Build application
+      working-directory: go-backend
+      run: |
+        go mod download
+        go mod tidy
+        CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ${{ env.BINARY_NAME }} ./cmd/server/main.go
+        
+    - name: Run tests
+      working-directory: go-backend
+      run: go test ./...
+      
+    - name: Create deployment package
+      working-directory: go-backend
+      run: |
+        mkdir -p dist/casino-backend
+        cp ${{ env.BINARY_NAME }} dist/casino-backend/
+        cp -r deploy dist/casino-backend/
+        cp env.example dist/casino-backend/
+        cp README.md dist/casino-backend/
+        cp DEPLOYMENT.md dist/casino-backend/
+        tar -czf casino-backend-deploy.tar.gz -C dist casino-backend/
+        
+    - name: Upload deployment artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: casino-backend-deploy
+        path: go-backend/casino-backend-deploy.tar.gz
+        retention-days: 30
+
+  deploy:
+    name: Deploy to Server
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Download deployment artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: casino-backend-deploy
+        
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+        
+    - name: Deploy to server
+      run: |
+        # Copy deployment package to server
+        scp -i ~/.ssh/id_rsa casino-backend-deploy.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/
+        
+        # Execute deployment commands on server
+        ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          # Extract deployment package
+          tar -xzf casino-backend-deploy.tar.gz
+          cd casino-backend
+          
+          # Run update script
+          sudo ./deploy/scripts/update.sh
+          
+          # Verify deployment
+          sleep 5
+          if sudo systemctl is-active --quiet casino-backend; then
+            echo "✅ Deployment successful!"
+            sudo systemctl status casino-backend --no-pager
+          else
+            echo "❌ Deployment failed!"
+            sudo journalctl -u casino-backend -n 20 --no-pager
+            exit 1
+          fi
+          
+          # Cleanup
+          rm -f ~/casino-backend-deploy.tar.gz
+        EOF
+        
+    - name: Health check
+      run: |
+        # Wait a bit for service to fully start
+        sleep 10
+        
+        # Health check
+        if curl -f http://${{ secrets.SERVER_HOST }}:8080/health; then
+          echo "✅ Health check passed!"
+        else
+          echo "❌ Health check failed!"
+          exit 1
+        fi
+        
+    - name: Notify deployment status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "🚀 Deployment completed successfully!"
+        else
+          echo "💥 Deployment failed!"
+        fi 

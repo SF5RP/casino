@@ -1,0 +1,260 @@
+name: Deployment Notifications
+
+on:
+  workflow_run:
+    workflows: ["Deploy Casino Backend", "Manual Deploy"]
+    types:
+      - completed
+
+jobs:
+  notify:
+    name: Send Deployment Notification
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Get workflow info
+      id: workflow
+      run: |
+        echo "workflow_name=${{ github.event.workflow_run.name }}" >> $GITHUB_OUTPUT
+        echo "workflow_status=${{ github.event.workflow_run.conclusion }}" >> $GITHUB_OUTPUT
+        echo "workflow_url=${{ github.event.workflow_run.html_url }}" >> $GITHUB_OUTPUT
+        echo "commit_sha=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+        echo "branch=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+        echo "actor=${{ github.event.workflow_run.triggering_actor.login }}" >> $GITHUB_OUTPUT
+        
+    - name: Format notification message
+      id: message
+      run: |
+        if [ "${{ steps.workflow.outputs.workflow_status }}" == "success" ]; then
+          STATUS_EMOJI="✅"
+          STATUS_TEXT="SUCCESS"
+          COLOR="good"
+        elif [ "${{ steps.workflow.outputs.workflow_status }}" == "failure" ]; then
+          STATUS_EMOJI="❌"
+          STATUS_TEXT="FAILED"
+          COLOR="danger"
+        else
+          STATUS_EMOJI="⚠️"
+          STATUS_TEXT="UNKNOWN"
+          COLOR="warning"
+        fi
+        
+        echo "status_emoji=$STATUS_EMOJI" >> $GITHUB_OUTPUT
+        echo "status_text=$STATUS_TEXT" >> $GITHUB_OUTPUT
+        echo "color=$COLOR" >> $GITHUB_OUTPUT
+        
+        # Create Slack message
+        SLACK_MESSAGE=$(cat << EOF
+        {
+          "attachments": [
+            {
+              "color": "$COLOR",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "$STATUS_EMOJI Casino Backend Deployment $STATUS_TEXT"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Workflow:*\n${{ steps.workflow.outputs.workflow_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Status:*\n$STATUS_TEXT"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ steps.workflow.outputs.branch }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Actor:*\n${{ steps.workflow.outputs.actor }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n\`${{ steps.workflow.outputs.commit_sha }}\`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Time:*\n$(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "${{ steps.workflow.outputs.workflow_url }}"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Repository"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        EOF
+        )
+        
+        echo "slack_message<<EOF" >> $GITHUB_OUTPUT
+        echo "$SLACK_MESSAGE" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: Send Slack notification
+      if: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        curl -X POST -H 'Content-type: application/json' \
+          --data '${{ steps.message.outputs.slack_message }}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
+          
+    - name: Send Telegram notification
+      if: ${{ secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        MESSAGE="${{ steps.message.outputs.status_emoji }} *Casino Backend Deployment ${{ steps.message.outputs.status_text }}*
+        
+        🔧 *Workflow:* ${{ steps.workflow.outputs.workflow_name }}
+        📊 *Status:* ${{ steps.message.outputs.status_text }}
+        🌿 *Branch:* ${{ steps.workflow.outputs.branch }}
+        👤 *Actor:* ${{ steps.workflow.outputs.actor }}
+        📝 *Commit:* \`${{ steps.workflow.outputs.commit_sha }}\`
+        🕐 *Time:* $(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)
+        
+        [View Workflow](${{ steps.workflow.outputs.workflow_url }})"
+        
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d text="$MESSAGE" \
+          -d parse_mode="Markdown" \
+          -d disable_web_page_preview=true
+          
+    - name: Send Discord notification
+      if: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      run: |
+        if [ "${{ steps.message.outputs.color }}" == "good" ]; then
+          DISCORD_COLOR=65280
+        elif [ "${{ steps.message.outputs.color }}" == "danger" ]; then
+          DISCORD_COLOR=16711680
+        else
+          DISCORD_COLOR=16776960
+        fi
+        
+        DISCORD_MESSAGE=$(cat << EOF
+        {
+          "embeds": [
+            {
+              "title": "${{ steps.message.outputs.status_emoji }} Casino Backend Deployment ${{ steps.message.outputs.status_text }}",
+              "color": $DISCORD_COLOR,
+              "fields": [
+                {
+                  "name": "Workflow",
+                  "value": "${{ steps.workflow.outputs.workflow_name }}",
+                  "inline": true
+                },
+                {
+                  "name": "Status",
+                  "value": "${{ steps.message.outputs.status_text }}",
+                  "inline": true
+                },
+                {
+                  "name": "Branch",
+                  "value": "${{ steps.workflow.outputs.branch }}",
+                  "inline": true
+                },
+                {
+                  "name": "Actor",
+                  "value": "${{ steps.workflow.outputs.actor }}",
+                  "inline": true
+                },
+                {
+                  "name": "Commit",
+                  "value": "\`${{ steps.workflow.outputs.commit_sha }}\`",
+                  "inline": true
+                },
+                {
+                  "name": "Time",
+                  "value": "$(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)",
+                  "inline": true
+                }
+              ],
+              "url": "${{ steps.workflow.outputs.workflow_url }}",
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            }
+          ]
+        }
+        EOF
+        )
+        
+        curl -X POST -H 'Content-Type: application/json' \
+          --data "$DISCORD_MESSAGE" \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
+          
+    - name: Send Email notification
+      if: ${{ secrets.SMTP_SERVER && secrets.SMTP_USERNAME && secrets.SMTP_PASSWORD && secrets.NOTIFICATION_EMAIL }}
+      run: |
+        # Install sendmail utility
+        sudo apt-get update && sudo apt-get install -y msmtp msmtp-mta
+        
+        # Configure msmtp
+        cat > ~/.msmtprc << EOF
+        defaults
+        auth           on
+        tls            on
+        tls_trust_file /etc/ssl/certs/ca-certificates.crt
+        logfile        ~/.msmtp.log
+        
+        account        default
+        host           ${{ secrets.SMTP_SERVER }}
+        port           587
+        from           ${{ secrets.SMTP_USERNAME }}
+        user           ${{ secrets.SMTP_USERNAME }}
+        password       ${{ secrets.SMTP_PASSWORD }}
+        EOF
+        
+        chmod 600 ~/.msmtprc
+        
+        # Send email
+        cat << EOF | msmtp ${{ secrets.NOTIFICATION_EMAIL }}
+        Subject: ${{ steps.message.outputs.status_emoji }} Casino Backend Deployment ${{ steps.message.outputs.status_text }}
+        From: ${{ secrets.SMTP_USERNAME }}
+        To: ${{ secrets.NOTIFICATION_EMAIL }}
+        Content-Type: text/html
+        
+        <html>
+        <body>
+          <h2>${{ steps.message.outputs.status_emoji }} Casino Backend Deployment ${{ steps.message.outputs.status_text }}</h2>
+          
+          <table border="1" style="border-collapse: collapse; margin: 20px 0;">
+            <tr><td><strong>Workflow:</strong></td><td>${{ steps.workflow.outputs.workflow_name }}</td></tr>
+            <tr><td><strong>Status:</strong></td><td>${{ steps.message.outputs.status_text }}</td></tr>
+            <tr><td><strong>Branch:</strong></td><td>${{ steps.workflow.outputs.branch }}</td></tr>
+            <tr><td><strong>Actor:</strong></td><td>${{ steps.workflow.outputs.actor }}</td></tr>
+            <tr><td><strong>Commit:</strong></td><td><code>${{ steps.workflow.outputs.commit_sha }}</code></td></tr>
+            <tr><td><strong>Time:</strong></td><td>$(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)</td></tr>
+          </table>
+          
+          <p>
+            <a href="${{ steps.workflow.outputs.workflow_url }}" style="background-color: #007cba; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">View Workflow</a>
+            <a href="${{ github.server_url }}/${{ github.repository }}" style="background-color: #28a745; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; margin-left: 10px;">View Repository</a>
+          </p>
+        </body>
+        </html>
+        EOF 
