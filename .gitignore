@@ -125,3 +125,4 @@ temp/
 # Local development
 local/
 dev/
+node_modules
