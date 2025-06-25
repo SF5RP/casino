@@ -6,11 +6,11 @@
 
 ```
 casino/
-├── 🎨 Frontend (Next.js)     # React application with real-time updates
-├── ⚡ Backend (Go)           # High-performance API server
-├── 📚 Documentation         # Complete project documentation
-├── 🔧 CI/CD                 # GitHub Actions workflows
-└── 📦 Deployment            # Production deployment configs
+├── 🎨 frontend/              # Next.js React application
+├── ⚡ backend/               # Go server with PostgreSQL
+├── 📚 docs/                  # Complete documentation
+├── 🔧 .github/workflows/     # CI/CD pipelines
+└── 📦 scripts/               # Utility scripts
 ```
 
 ## ✨ Features
@@ -55,6 +55,7 @@ go build -o casino-backend ./cmd/server
 ### 3. Start Frontend
 ```bash
 # In new terminal
+cd frontend
 npm install
 npm run dev
 ```
@@ -68,12 +69,16 @@ npm run dev
 
 ```
 casino/
-├── src/                     # Next.js Frontend
-│   ├── app/                 # App Router pages
-│   ├── components/          # React components
-│   │   └── casino/          # Roulette-specific components
-│   ├── lib/                 # Utilities and API clients
-│   └── config/              # Configuration files
+├── frontend/                # Next.js Frontend
+│   ├── src/                 # Source code
+│   │   ├── app/             # App Router pages
+│   │   ├── components/      # React components
+│   │   │   └── casino/      # Roulette-specific components
+│   │   ├── lib/             # Utilities and API clients
+│   │   └── config/          # Configuration files
+│   ├── package.json         # Frontend dependencies
+│   ├── next.config.ts       # Next.js configuration
+│   └── README.md           # Frontend documentation
 ├── backend/                 # Go Backend
 │   ├── cmd/server/          # Application entry point
 │   ├── internal/            # Internal packages
@@ -81,7 +86,8 @@ casino/
 │   │   ├── handlers/        # HTTP handlers
 │   │   └── models/          # Data models
 │   ├── pkg/websocket/       # WebSocket implementation
-│   └── deploy/              # Deployment configurations
+│   ├── deploy/              # Deployment configurations
+│   └── README.md           # Backend documentation
 ├── .github/workflows/       # CI/CD pipelines
 ├── docs/                    # Documentation
 ├── scripts/                 # Utility scripts
@@ -92,6 +98,8 @@ casino/
 
 ### Frontend Development
 ```bash
+cd frontend
+
 # Install dependencies
 npm install
 
@@ -138,37 +146,42 @@ cd backend
 
 ## 🌐 API Documentation
 
-### Frontend Endpoints (Next.js)
+### Frontend (Next.js)
 - `GET /` - Main roulette interface
-- `GET /api/...` - Next.js API routes (if any)
+- Static assets and pages served by Next.js
 
-### Backend Endpoints (Go)
+### Backend (Go)
 - `GET /health` - System health check
 - `GET /api/roulette/{key}` - Get session history
 - `POST /api/roulette/save` - Save new number
 - `PUT /api/roulette/{key}` - Update session
 - `WS /ws` - WebSocket connection
 
-See [Backend API Documentation](backend/README.md) for complete API reference.
+See component documentation:
+- [Frontend API Documentation](frontend/README.md)
+- [Backend API Documentation](backend/README.md)
 
 ## 🚀 Deployment
 
 ### Development
 ```bash
-# Start both services
-npm run dev          # Frontend on :3000
-cd backend && ./casino-backend  # Backend on :8080
+# Start backend (Terminal 1)
+cd backend && ./casino-backend
+
+# Start frontend (Terminal 2)
+cd frontend && npm run dev
 ```
 
 ### Production
 
 #### Option 1: Separate Services
 ```bash
-# Build frontend
+# Build and start frontend
+cd frontend
 npm run build
 npm start
 
-# Build and run backend
+# Build and start backend
 cd backend
 go build -o casino-backend ./cmd/server
 ./casino-backend
@@ -176,6 +189,15 @@ go build -o casino-backend ./cmd/server
 
 #### Option 2: Docker Compose
 ```bash
+# Frontend
+cd frontend
+docker build -t casino-frontend .
+
+# Backend
+cd backend
+docker build -t casino-backend .
+
+# Run both
 docker-compose up -d
 ```
 
@@ -214,11 +236,12 @@ See [CI/CD Documentation](docs/CI_CD_QUICK_START.md) for setup instructions.
 
 ## 📚 Documentation
 
+- [📖 **Frontend Guide**](frontend/README.md) - Next.js application documentation
+- [⚙️ **Backend Guide**](backend/README.md) - Go server documentation
+- [🗄️ **Database Migrations**](backend/MIGRATIONS.md) - Migration system guide
 - [📖 **CI/CD Guide**](docs/CI_CD_QUICK_START.md) - Complete CI/CD setup
 - [🐧 **Linux Deployment**](docs/LINUX_DEPLOYMENT_SUMMARY.md) - Production deployment
 - [🔄 **Go Migration Guide**](docs/MIGRATION_TO_GO.md) - Node.js to Go migration
-- [⚙️ **Backend API**](backend/README.md) - Go backend documentation
-- [🗄️ **Database Migrations**](backend/MIGRATIONS.md) - Migration system guide
 
 ## 🛠️ Tech Stack
 
@@ -257,6 +280,12 @@ See [CI/CD Documentation](docs/CI_CD_QUICK_START.md) for setup instructions.
 - Add tests for new features
 - Update documentation
 - Ensure CI/CD passes
+
+### Component Guidelines
+- **Frontend**: Follow React/Next.js best practices
+- **Backend**: Follow Go conventions and patterns
+- **Database**: Use migrations for schema changes
+- **API**: Maintain backward compatibility
 
 ## 📄 License
 
