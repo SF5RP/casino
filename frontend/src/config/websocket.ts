@@ -1,7 +1,7 @@
 // Конфигурация WebSocket для клиента
 export const WS_CONFIG = {
-  // Порт по умолчанию
-  DEFAULT_PORT: 3002,
+  // Порт по умолчанию для Go backend
+  DEFAULT_PORT: 8080,
   
   // URL для подключения (можно переопределить через переменные окружения)
   getWebSocketUrl: () => {
@@ -11,7 +11,7 @@ export const WS_CONFIG = {
     }
     
     // Проверяем переменные окружения Next.js
-    const wsPort = process.env.NEXT_PUBLIC_WS_PORT || '3002';
+    const wsPort = process.env.NEXT_PUBLIC_WS_PORT || '8080';
     const wsHost = process.env.NEXT_PUBLIC_WS_HOST || 'localhost';
     const wsProtocol = process.env.NEXT_PUBLIC_WS_PROTOCOL || 'ws';
     
@@ -22,7 +22,7 @@ export const WS_CONFIG = {
     }
     
     // Для разработки собираем URL из частей
-    return `${wsProtocol}://${wsHost}:${wsPort}`;
+    return `${wsProtocol}://${wsHost}:${wsPort}/ws`;
   },
   
   // Настройки подключения
