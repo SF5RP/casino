@@ -145,7 +145,7 @@ func (c *Client) readPump() {
 		if response != nil {
 			if responseBytes, err := json.Marshal(response); err == nil {
 				// Broadcast to all clients or send to specific client based on message type
-				if message.Type == "saveNumber" || message.Type == "updateHistory" {
+				if message.Type == "saveNumber" || message.Type == "updateHistory" || message.Type == "update" {
 					c.hub.broadcast <- responseBytes
 				} else {
 					c.send <- responseBytes
@@ -179,6 +179,10 @@ func (c *Client) writePump() {
 // handleMessage processes incoming WebSocket messages
 func (c *Client) handleMessage(message models.WSMessage) (*models.WSMessage, error) {
 	switch message.Type {
+	case "join":
+		return c.handleJoin(message)
+	case "update":
+		return c.handleUpdate(message)
 	case "getHistory":
 		return c.handleGetHistory(message)
 	case "saveNumber":
@@ -236,6 +240,43 @@ func (c *Client) handleUpdateHistory(message models.WSMessage) (*models.WSMessag
 
 	return &models.WSMessage{
 		Type:    "historyUpdated",
+		Key:     message.Key,
+		History: session.History,
+	}, nil
+}
+
+// handleJoin handles join WebSocket messages (when client connects to a session)
+func (c *Client) handleJoin(message models.WSMessage) (*models.WSMessage, error) {
+	session, err := c.hub.repo.GetSession(message.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	var history []models.RouletteNumber
+	if session != nil {
+		history = session.History
+	} else {
+		history = []models.RouletteNumber{}
+	}
+
+	// Send sync message with current history
+	return &models.WSMessage{
+		Type:    "sync",
+		Key:     message.Key,
+		History: history,
+	}, nil
+}
+
+// handleUpdate handles update WebSocket messages (when client updates history)
+func (c *Client) handleUpdate(message models.WSMessage) (*models.WSMessage, error) {
+	session, err := c.hub.repo.UpdateSessionHistory(message.Key, message.History)
+	if err != nil {
+		return nil, err
+	}
+
+	// Broadcast the update to all clients
+	return &models.WSMessage{
+		Type:    "sync",
 		Key:     message.Key,
 		History: session.History,
 	}, nil
