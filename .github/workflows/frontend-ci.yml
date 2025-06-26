@@ -42,7 +42,12 @@ jobs:
     - name: Run TypeScript type checking
       working-directory: frontend
       run: |
-        npm run type-check || npx tsc --noEmit
+        if npm run type-check 2>/dev/null; then
+          echo "✅ Type check completed using npm script"
+        else
+          echo "📝 Running TypeScript check directly"
+          npx tsc --noEmit
+        fi
         
     - name: Upload ESLint report
       if: always()

@@ -50,7 +50,12 @@ jobs:
     - name: Run type checking
       working-directory: frontend
       run: |
-        npm run type-check || npx tsc --noEmit
+        if npm run type-check 2>/dev/null; then
+          echo "✅ Type check completed using npm script"
+        else
+          echo "📝 Running TypeScript check directly"
+          npx tsc --noEmit
+        fi
         
     - name: Build application
       working-directory: frontend
@@ -68,18 +73,78 @@ jobs:
         
         # Copy built application
         cp -r .next deploy_package/
-        cp -r public deploy_package/
+        
+        # Copy public directory if exists
+        if [ -d "public" ]; then
+          cp -r public deploy_package/
+        else
+          mkdir deploy_package/public
+        fi
+        
+        # Copy node_modules
         cp -r node_modules deploy_package/
         
         # Copy configuration files
         cp package.json deploy_package/
         cp package-lock.json deploy_package/
         cp next.config.ts deploy_package/
-        cp tsconfig.json deploy_package/
         
-        # Copy startup scripts
-        cp start-prod.js deploy_package/
-        cp config.js deploy_package/
+        # Copy TypeScript config if exists
+        if [ -f "tsconfig.json" ]; then
+          cp tsconfig.json deploy_package/
+        fi
+        
+        # Copy startup scripts if they exist
+        if [ -f "start-prod.js" ]; then
+          cp start-prod.js deploy_package/
+        else
+          # Create default start-prod.js
+          cat > deploy_package/start-prod.js << 'STARTJS'
+const { spawn } = require('child_process');
+
+console.log('🚀 Starting Next.js production server...');
+
+const nextApp = spawn('npm', ['run', 'start'], {
+  stdio: 'inherit',
+  env: {
+    ...process.env,
+    NODE_ENV: 'production',
+    PORT: process.env.PORT || 3000
+  },
+  shell: true
+});
+
+nextApp.on('close', (code) => {
+  console.log(`Next.js process exited with code ${code}`);
+  process.exit(code);
+});
+
+process.on('SIGINT', () => {
+  console.log('Received SIGINT, stopping Next.js...');
+  nextApp.kill('SIGINT');
+});
+
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM, stopping Next.js...');
+  nextApp.kill('SIGTERM');
+});
+STARTJS
+        fi
+        
+        # Copy config.js if exists
+        if [ -f "config.js" ]; then
+          cp config.js deploy_package/
+        else
+          # Create default config.js
+          cat > deploy_package/config.js << 'CONFIGJS'
+const config = {
+  APP_PORT: process.env.PORT || 3000,
+  NODE_ENV: process.env.NODE_ENV || 'production'
+};
+
+module.exports = config;
+CONFIGJS
+        fi
         
         # Create PM2 ecosystem config
         cat > deploy_package/ecosystem.config.js << 'EOF'
