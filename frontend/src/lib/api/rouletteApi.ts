@@ -1,5 +1,5 @@
 import type { RouletteNumber } from '@/components/casino/types/rouletteTypes';
-import { API_BASE_URL, apiRequest } from '@/config/api';
+import { API_BASE_URL } from '@/config/api';
 
 // Типы для API ответов
 export interface RouletteSession {
