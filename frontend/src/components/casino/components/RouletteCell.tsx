@@ -1,7 +1,6 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { Box, Tooltip } from '@mui/material';
+import React, { useMemo } from 'react';
+import { Box } from '@mui/material';
 import { getNumberColor, getProgressColor } from '../utils/rouletteUtils';
-import { CellTooltip } from './CellTooltip';
 import type { RouletteNumber } from '../types/rouletteTypes';
 
 interface RouletteCellProps {
@@ -16,26 +15,15 @@ interface RouletteCellProps {
 }
 
 export const RouletteCell: React.FC<RouletteCellProps> = ({
-  num,
-  count,
-  isActive,
-  isHighlighted,
-  onCellClick,
-  history,
-  onMouseEnter,
-  onMouseLeave,
-}: RouletteCellProps) => {
-  const [showDetailedTooltip, setShowDetailedTooltip] = useState(false);
-  const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
-
-  // Очищаем таймаут при размонтировании
-  useEffect(() => {
-    return () => {
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
-      }
-    };
-  }, [hoverTimeout]);
+                                                            num,
+                                                            count,
+                                                            isActive,
+                                                            isHighlighted,
+                                                            onCellClick,
+                                                            history,
+                                                            onMouseEnter,
+                                                            onMouseLeave,
+                                                          }: RouletteCellProps) => {
   const isRecent = count === 0;
   const numberColor = getNumberColor(num);
   const isZeroCell = num === 0 || num === '00';
@@ -43,30 +31,30 @@ export const RouletteCell: React.FC<RouletteCellProps> = ({
   // Мемоизируем все вычисления для предотвращения пересчетов
   const cellStyles = useMemo(() => {
     const hasProgress = typeof count === 'number' && count > 0;
-    
+
     // Определяем фоновый цвет ячейки
     const cellBgColor = isActive ? '#2222dd' : (isHighlighted ? '#ffecb3' : numberColor);
-    
+
     // Определяем цвет текста
     const textColor = isActive ? '#ffffff' : (isHighlighted ? '#000000' : '#ffffff');
-    
+
     // Создаем фон с прогрессом если нужно
     let background = cellBgColor;
     let border = 'none';
     let backgroundOrigin = 'padding-box';
     let backgroundClip = 'padding-box';
-    
+
     if (hasProgress) {
       const progressColor = getProgressColor(count);
       const normalizedProgress = Math.min(count / 50, 1);
       const progressAngle = normalizedProgress * 360;
-      
+
       background = `linear-gradient(${cellBgColor}, ${cellBgColor}) padding-box, conic-gradient(from 0deg, ${progressColor} 0deg, ${progressColor} ${progressAngle}deg, transparent ${progressAngle}deg, transparent 360deg) border-box`;
       border = '3px solid transparent';
       backgroundOrigin = 'border-box';
       backgroundClip = 'padding-box, border-box';
     }
-    
+
     return {
       backgroundColor: cellBgColor,
       color: textColor,
@@ -76,22 +64,6 @@ export const RouletteCell: React.FC<RouletteCellProps> = ({
       backgroundClip,
     };
   }, [count, isActive, isHighlighted, numberColor]);
-
-  // Обработчики для задержки подсказки
-  const handleMouseEnter = () => {
-    const timeout = setTimeout(() => {
-      setShowDetailedTooltip(true);
-    }, 2500); // 2.5 секунды задержка
-    setHoverTimeout(timeout);
-  };
-
-  const handleMouseLeave = () => {
-    if (hoverTimeout) {
-      clearTimeout(hoverTimeout);
-      setHoverTimeout(null);
-    }
-    setShowDetailedTooltip(false);
-  };
 
   return (
     <Box
@@ -124,9 +96,9 @@ export const RouletteCell: React.FC<RouletteCellProps> = ({
       }}
     >
       {/* Номер */}
-      <Box 
-        sx={{ 
-          fontWeight: 700, 
+      <Box
+        sx={{
+          fontWeight: 700,
           fontSize: 'calc(var(--cell-size, 44px) * 0.4)',
           lineHeight: 0.9,
           minFontSize: '12px',
@@ -135,10 +107,10 @@ export const RouletteCell: React.FC<RouletteCellProps> = ({
       >
         {num}
       </Box>
-      
+
       {/* Счетчик */}
-      <Box 
-        sx={{ 
+      <Box
+        sx={{
           fontSize: 'calc(var(--cell-size, 44px) * 0.24)',
           lineHeight: 0.9,
           minFontSize: '7px',

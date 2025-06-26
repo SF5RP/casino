@@ -1,8 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
-} from 'recharts';
+import { Bar, BarChart, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 interface RouletteStatsChartsProps {
   history: number[];
@@ -15,7 +13,7 @@ const COLORS = ['#dc2626', '#1f2937', '#16a34a']; // Красный, чёрны�
 const getColor = (num: number) => {
   if (num === 0) return 'green';
   // Пример: чётные - чёрные, нечётные - красные (замени на свою логику)
-  return [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(num) ? 'red' : 'black';
+  return [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36].includes(num) ? 'red' : 'black';
 };
 
 // Маппинг номеров к секторам (пример)

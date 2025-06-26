@@ -1,10 +1,10 @@
-import React, { useRef, useEffect, useCallback, useMemo, startTransition } from 'react';
+import React, { startTransition, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Box } from '@mui/material';
 import { RouletteCell } from '../RouletteCell';
 import { BetButton } from '../betGroups/BetButton';
 import { GROUPS } from '../../constants/rouletteConstants';
-import { getProgressColor, calculateGroupAge } from '../../utils/rouletteUtils';
-import type { RouletteNumber, AgeMap } from '../../types/rouletteTypes';
+import { calculateGroupAge, getProgressColor } from '../../utils/rouletteUtils';
+import type { AgeMap, RouletteNumber } from '../../types/rouletteTypes';
 
 interface RouletteBoardProps {
   ageMap: AgeMap;
@@ -22,21 +22,21 @@ let renderCount = 0;
 const DEBUG_LOGS = process.env.NODE_ENV === 'development';
 
 const RouletteBoard: React.FC<RouletteBoardProps> = ({
-  ageMap,
-  activeLabel,
-  activeGroup,
-  history,
-  setHistory,
-  setActiveLabel,
-  setActiveGroup,
-  setHoveredNumber,
-}) => {
+                                                       ageMap,
+                                                       activeLabel,
+                                                       activeGroup,
+                                                       history,
+                                                       setHistory,
+                                                       setActiveLabel,
+                                                       setActiveGroup,
+                                                       setHoveredNumber,
+                                                     }) => {
   renderCount++;
   if (DEBUG_LOGS) {
     console.time(`RouletteBoard-render-${renderCount}`);
     console.log(`🎲 RouletteBoard рендер #${renderCount}, история: ${history.length}, активная группа: ${activeGroup.length}`);
   }
-  
+
   const boardRef = useRef<HTMLDivElement>(null);
 
   // Функция для обновления только ширины стола (для блоков ставок)
@@ -65,18 +65,18 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
   const handleCellClick = useCallback((num: RouletteNumber) => {
     console.time(`handleCellClick-${num}`);
     console.log(`🎯 Клик по ячейке ${num}, текущая история:`, history.length);
-    
+
     const startTime = performance.now();
-    
+
     // Используем startTransition для батчинга обновлений
     startTransition(() => {
       setHistory([...history, num]);
       setActiveLabel(String(num));
     });
-    
+
     const endTime = performance.now();
     console.log(`📊 Объединенное обновление состояния: ${(endTime - startTime).toFixed(2)}ms`);
-    
+
     console.timeEnd(`handleCellClick-${num}`);
   }, [history, setHistory, setActiveLabel]);
 
@@ -142,13 +142,13 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
     if (DEBUG_LOGS) {
       console.log(`🔢 Пересчет возрастов 2to1, история: ${history.length} элементов`);
     }
-    
+
     const result = twoToOneGroups.map(({ rowIdx, rowNums }) => ({
       rowIdx,
       rowNums,
       groupAge: calculateGroupAge(history, rowNums)
     }));
-    
+
     if (DEBUG_LOGS) {
       console.log(`✅ 2to1 возрасты: [${result.map(r => r.groupAge).join(', ')}]`);
     }
@@ -160,18 +160,18 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
     return twoToOneAges.map(({ groupAge }) => {
       const bg = '#52b788';
       const hasProgress = groupAge > 0;
-      
+
       if (!hasProgress) {
         return {
           background: bg,
           border: 'none',
         };
       }
-      
+
       const progressColor = getProgressColor(groupAge);
       const normalizedProgress = Math.min(groupAge / 30, 1);
       const progressAngle = normalizedProgress * 360;
-      
+
       return {
         background: `linear-gradient(${bg}, ${bg}) padding-box, conic-gradient(from 0deg, ${progressColor} 0deg, ${progressColor} ${progressAngle}deg, transparent ${progressAngle}deg, transparent 360deg) border-box`,
         border: '3px solid transparent',
@@ -182,8 +182,8 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
   }, [twoToOneAges]);
 
   return (
-    <Box 
-      ref={boardRef} 
+    <Box
+      ref={boardRef}
       sx={{
         display: 'grid',
         gridTemplateColumns: 'auto 1fr auto',
@@ -213,7 +213,7 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
         {renderCell('00')}
         {renderCell(0)}
       </Box>
-      
+
       {/* Основная сетка чисел */}
       <Box
         sx={{
@@ -251,14 +251,14 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
         {twoToOneAges.map(({ rowIdx, rowNums, groupAge }, index) => {
           const buttonKey = `2to1-${rowIdx}`;
           const isActiveButton = activeLabel === buttonKey;
-          
+
           // Используем предрасчитанные стили
           const baseButtonStyles = twoToOneButtonStyles[index];
           const buttonStyles = {
             ...baseButtonStyles,
             border: isActiveButton ? '2px solid #f1c40f' : baseButtonStyles.border,
           };
-          
+
           return (
             <Box
               key={rowIdx}
@@ -336,9 +336,9 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
             setActiveGroup={setActiveGroup}
             buttonType="sector"
           />
-          ))}
-        </Box>
-        
+        ))}
+      </Box>
+
       {/* Второй ряд блоков ставок - основные (1-18, EVEN, RED, BLACK, ODD, 19-36) */}
       <Box
         sx={{
@@ -355,17 +355,17 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
             key={label}
             label={label}
             group={group}
-          history={history}
-          activeLabel={activeLabel}
-          setActiveLabel={setActiveLabel}
-          setActiveGroup={setActiveGroup}
+            history={history}
+            activeLabel={activeLabel}
+            setActiveLabel={setActiveLabel}
+            setActiveGroup={setActiveGroup}
             buttonType="main"
-        />
+          />
         ))}
       </Box>
     </Box>
   );
-  
+
   if (DEBUG_LOGS) {
     console.timeEnd(`RouletteBoard-render-${renderCount}`);
     console.log(`✅ RouletteBoard рендер #${renderCount} завершен`);

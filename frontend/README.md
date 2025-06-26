@@ -25,6 +25,7 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
 - npm or yarn
 
@@ -89,6 +90,7 @@ frontend/
 ## 🎮 Components Overview
 
 ### Core Components
+
 - **RouletteBoard** - Main roulette table with numbers
 - **RouletteCell** - Individual number cell with statistics
 - **StatsPanel** - Statistics dashboard
@@ -97,12 +99,14 @@ frontend/
 - **GameInfo** - Current game information
 
 ### Analysis Components
+
 - **ColorAnalysis** - Red/Black/Green analysis
 - **EvenOddAnalysis** - Even/Odd number patterns
 - **RowAnalysis** - Row-based statistics
 - **SectorAnalysis** - Sector distribution analysis
 
 ### UI Components
+
 - **BetButton** - Betting interface buttons
 - **CellTooltip** - Number cell tooltips
 - **FloatingButtons** - Action buttons
@@ -134,24 +138,28 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080
 ## 🎯 Key Features
 
 ### Real-time Updates
+
 - WebSocket connection to Go backend
 - Live number updates
 - Real-time statistics recalculation
 - Connection status monitoring
 
 ### Advanced Analytics
+
 - **Color Analysis**: Red/Black/Green distribution
 - **Pattern Recognition**: Hot/Cold numbers
 - **Sector Analysis**: Wheel sector statistics
 - **Trend Analysis**: Number frequency patterns
 
 ### Forecast System
+
 - Multiple prediction algorithms
 - Confidence scoring
 - Historical accuracy tracking
 - Pattern-based predictions
 
 ### Responsive Design
+
 - Mobile-first approach
 - Touch-friendly interface
 - Adaptive layouts
@@ -160,6 +168,7 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080
 ## 🔄 State Management
 
 ### Redux Store Structure
+
 ```typescript
 interface AppState {
   roulette: {
@@ -177,6 +186,7 @@ interface AppState {
 ```
 
 ### React Query Usage
+
 - API data fetching
 - Cache management
 - Background updates
@@ -185,6 +195,7 @@ interface AppState {
 ## 🎨 Styling
 
 ### Emotion Setup
+
 ```typescript
 // Styled components
 const RouletteCell = styled.div<{ color: string }>`
@@ -198,6 +209,7 @@ const RouletteCell = styled.div<{ color: string }>`
 ```
 
 ### CSS Variables
+
 ```css
 :root {
   --color-red: #dc2626;
@@ -211,6 +223,7 @@ const RouletteCell = styled.div<{ color: string }>`
 ## 📊 Performance
 
 ### Optimization Features
+
 - Code splitting with dynamic imports
 - Image optimization with Next.js
 - Bundle analysis and optimization
@@ -218,6 +231,7 @@ const RouletteCell = styled.div<{ color: string }>`
 - Memoization of expensive calculations
 
 ### Metrics
+
 - **First Load**: ~800ms
 - **Route Changes**: ~100ms
 - **Bundle Size**: ~200KB gzipped
@@ -239,6 +253,7 @@ npm run test:e2e
 ## 🚀 Deployment
 
 ### Production Build
+
 ```bash
 # Build for production
 npm run build
@@ -248,6 +263,7 @@ npm start
 ```
 
 ### Docker Deployment
+
 ```bash
 # Build Docker image
 docker build -t casino-frontend .
@@ -257,6 +273,7 @@ docker run -p 3000:3000 casino-frontend
 ```
 
 ### Environment Setup
+
 ```bash
 # Production environment
 NODE_ENV=production
@@ -267,12 +284,14 @@ NEXT_PUBLIC_WS_URL=wss://api.yourdomain.com/ws
 ## 🔗 API Integration
 
 ### Backend Communication
+
 - REST API for data operations
 - WebSocket for real-time updates
 - Error handling and retry logic
 - Request/response interceptors
 
 ### Example API Usage
+
 ```typescript
 // Fetch roulette history
 const { data, isLoading } = useQuery({
@@ -292,19 +311,19 @@ const saveMutation = useMutation({
 ### Common Issues
 
 1. **WebSocket Connection Failed**
-   - Check backend server is running
-   - Verify WebSocket URL in config
-   - Check network connectivity
+    - Check backend server is running
+    - Verify WebSocket URL in config
+    - Check network connectivity
 
 2. **Build Errors**
-   - Clear `.next` folder
-   - Delete `node_modules` and reinstall
-   - Check TypeScript errors
+    - Clear `.next` folder
+    - Delete `node_modules` and reinstall
+    - Check TypeScript errors
 
 3. **Performance Issues**
-   - Enable React DevTools Profiler
-   - Check for unnecessary re-renders
-   - Optimize heavy calculations
+    - Enable React DevTools Profiler
+    - Check for unnecessary re-renders
+    - Optimize heavy calculations
 
 ## 🤝 Contributing
 

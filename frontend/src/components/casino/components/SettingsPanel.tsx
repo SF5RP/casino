@@ -1,15 +1,15 @@
 import React from 'react';
 import {
   Box,
-  Typography,
-  FormControl,
-  FormLabel,
-  Slider,
-  FormGroup,
-  FormControlLabel,
-  Switch,
   Button,
   Divider,
+  FormControl,
+  FormControlLabel,
+  FormGroup,
+  FormLabel,
+  Slider,
+  Switch,
+  Typography,
 } from '@mui/material';
 
 interface SettingsPanelProps {
@@ -31,22 +31,22 @@ interface SettingsPanelProps {
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
-  showSettings,
-  setShowSettings,
-  setShowStats,
-  historyRows,
-  updateHistoryRows,
-  historyLength,
-  showFullHistory,
-  setShowFullHistory,
-  onShare,
-  onReset,
-  onDeleteLast,
-  chartHistoryLength,
-  setChartHistoryLength,
-  isHistoryWide,
-  setIsHistoryWide,
-}) => {
+                                                              showSettings,
+                                                              setShowSettings,
+                                                              setShowStats,
+                                                              historyRows,
+                                                              updateHistoryRows,
+                                                              historyLength,
+                                                              showFullHistory,
+                                                              setShowFullHistory,
+                                                              onShare,
+                                                              onReset,
+                                                              onDeleteLast,
+                                                              chartHistoryLength,
+                                                              setChartHistoryLength,
+                                                              isHistoryWide,
+                                                              setIsHistoryWide,
+                                                            }) => {
   if (!showSettings) return null;
 
   return (

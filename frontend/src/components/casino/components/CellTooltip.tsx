@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Box, Typography, Divider } from '@mui/material';
+import { Box, Divider, Typography } from '@mui/material';
 import { getNumberColor } from '../utils/rouletteUtils';
 import type { RouletteNumber } from '../types/rouletteTypes';
 
@@ -13,15 +13,14 @@ export const CellTooltip: React.FC<CellTooltipProps> = ({ num, count, history })
   const stats = useMemo(() => {
     const numStr = String(num);
     const totalBets = history.length;
-    
+
     // Подсчитываем сколько раз выпадало это число
     const occurrences = history.filter(h => String(h) === numStr).length;
-    
+
     // Вычисляем процент
     const percentage = totalBets > 0 ? (occurrences / totalBets * 100).toFixed(1) : '0.0';
-    
 
-    
+
     // Найдем последние 3 позиции этого числа
     const lastPositions = [];
     for (let i = history.length - 1; i >= 0 && lastPositions.length < 3; i--) {
@@ -29,7 +28,7 @@ export const CellTooltip: React.FC<CellTooltipProps> = ({ num, count, history })
         lastPositions.push(history.length - i);
       }
     }
-    
+
     return {
       occurrences,
       percentage,
@@ -41,10 +40,10 @@ export const CellTooltip: React.FC<CellTooltipProps> = ({ num, count, history })
   const numberColor = getNumberColor(num);
 
   return (
-    <Box sx={{ 
-      p: 2, 
-      minWidth: 250, 
-      backgroundColor: '#1a1a1a', 
+    <Box sx={{
+      p: 2,
+      minWidth: 250,
+      backgroundColor: '#1a1a1a',
       color: 'white',
       borderRadius: 2,
       border: '1px solid #333'
@@ -87,7 +86,6 @@ export const CellTooltip: React.FC<CellTooltipProps> = ({ num, count, history })
           <strong>Всего ставок:</strong> {stats.totalBets}
         </Typography>
       </Box>
-
 
 
       {/* Последние позиции */}

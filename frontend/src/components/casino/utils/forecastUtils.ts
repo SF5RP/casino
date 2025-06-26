@@ -1,12 +1,12 @@
 import type { RouletteNumber } from '../types/rouletteTypes';
-import type { ForecastEntry, ForecastConfig } from '../types/forecastTypes';
+import type { ForecastConfig, ForecastEntry } from '../types/forecastTypes';
 
-const RED = new Set(["1","3","5","7","9","12","14","16","18","19","21","23","25","27","30","32","34","36"]);
-const BLACK = new Set(["2","4","6","8","10","11","13","15","17","20","22","24","26","28","29","31","33","35"]);
+const RED = new Set(["1", "3", "5", "7", "9", "12", "14", "16", "18", "19", "21", "23", "25", "27", "30", "32", "34", "36"]);
+const BLACK = new Set(["2", "4", "6", "8", "10", "11", "13", "15", "17", "20", "22", "24", "26", "28", "29", "31", "33", "35"]);
 
-const COLUMN_1 = new Set(["1","4","7","10","13","16","19","22","25","28","31","34"]);
-const COLUMN_2 = new Set(["2","5","8","11","14","17","20","23","26","29","32","35"]);
-const COLUMN_3 = new Set(["3","6","9","12","15","18","21","24","27","30","33","36"]);
+const COLUMN_1 = new Set(["1", "4", "7", "10", "13", "16", "19", "22", "25", "28", "31", "34"]);
+const COLUMN_2 = new Set(["2", "5", "8", "11", "14", "17", "20", "23", "26", "29", "32", "35"]);
+const COLUMN_3 = new Set(["3", "6", "9", "12", "15", "18", "21", "24", "27", "30", "33", "36"]);
 
 const DOZEN_1 = new Set([...Array(12)].map((_, i) => (i + 1).toString()));
 const DOZEN_2 = new Set([...Array(12)].map((_, i) => (i + 13).toString()));

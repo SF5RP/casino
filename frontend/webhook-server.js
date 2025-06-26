@@ -1,6 +1,6 @@
 const http = require('http');
 const crypto = require('crypto');
-const { exec } = require('child_process');
+const {exec} = require('child_process');
 
 // Конфигурация
 const PORT = 9000;
@@ -17,7 +17,7 @@ function verifySignature(payload, signature) {
 // Создаем HTTP сервер
 const server = http.createServer((req, res) => {
   if (req.method !== 'POST') {
-    res.writeHead(405, { 'Content-Type': 'text/plain' });
+    res.writeHead(405, {'Content-Type': 'text/plain'});
     res.end('Method Not Allowed');
     return;
   }
@@ -33,17 +33,17 @@ const server = http.createServer((req, res) => {
       const signature = req.headers['x-hub-signature-256'];
       if (signature && !verifySignature(body, signature)) {
         console.log('❌ Неверная подпись webhook');
-        res.writeHead(401, { 'Content-Type': 'text/plain' });
+        res.writeHead(401, {'Content-Type': 'text/plain'});
         res.end('Unauthorized');
         return;
       }
 
       const payload = JSON.parse(body);
-      
+
       // Проверяем, что это push в main ветку
       if (payload.ref === 'refs/heads/main') {
         console.log('🚀 Получен webhook для main ветки, запускаем деплой...');
-        
+
         // Запускаем скрипт деплоя
         exec(`sudo -u deploy ${DEPLOY_SCRIPT}`, (error, stdout, stderr) => {
           if (error) {
@@ -54,16 +54,16 @@ const server = http.createServer((req, res) => {
           if (stderr) console.log('Warnings:', stderr);
         });
 
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.writeHead(200, {'Content-Type': 'text/plain'});
         res.end('Deploy started');
       } else {
         console.log('ℹ️ Webhook для ветки', payload.ref, '- игнорируем');
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.writeHead(200, {'Content-Type': 'text/plain'});
         res.end('Ignored');
       }
     } catch (error) {
       console.error('❌ Ошибка обработки webhook:', error);
-      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.writeHead(400, {'Content-Type': 'text/plain'});
       res.end('Bad Request');
     }
   });

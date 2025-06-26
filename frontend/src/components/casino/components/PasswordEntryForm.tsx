@@ -1,14 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Box,
-  Typography,
-  TextField,
-  Button,
-  Paper,
-  Alert,
-} from '@mui/material';
+import { Alert, Box, Button, Paper, TextField, Typography, } from '@mui/material';
 import { Lock } from '@mui/icons-material';
 
 interface PasswordEntryFormProps {
@@ -19,11 +12,11 @@ interface PasswordEntryFormProps {
 }
 
 export const PasswordEntryForm: React.FC<PasswordEntryFormProps> = ({
-  roomKey,
-  error,
-  onSubmit,
-  isSubmitting,
-}) => {
+                                                                      roomKey,
+                                                                      error,
+                                                                      onSubmit,
+                                                                      isSubmitting,
+                                                                    }) => {
   const [password, setPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -59,7 +52,8 @@ export const PasswordEntryForm: React.FC<PasswordEntryFormProps> = ({
           Комната защищена
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Для доступа к комнате <Typography component="span" color="primary.main" fontWeight="bold">{roomKey}</Typography> введите пароль.
+          Для доступа к комнате <Typography component="span" color="primary.main"
+                                            fontWeight="bold">{roomKey}</Typography> введите пароль.
         </Typography>
 
         {error && (

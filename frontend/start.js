@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const {spawn} = require('child_process');
 const config = require('./config');
 
 console.log('🚀 Запуск Next.js приложения рулетки...\n');
@@ -7,8 +7,8 @@ console.log('🚀 Запуск Next.js приложения рулетки...\n'
 console.log(`🌐 Запуск Next.js приложения на порту ${config.APP_PORT}...`);
 const nextApp = spawn('npm', ['run', 'dev'], {
   stdio: 'pipe',
-  env: { 
-    ...process.env, 
+  env: {
+    ...process.env,
     PORT: config.APP_PORT
   },
   shell: true

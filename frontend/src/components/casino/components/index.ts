@@ -20,4 +20,8 @@ export { ColorAnalysis } from './statsPanel/ColorAnalysis';
 export { SectorAnalysis } from './statsPanel/SectorAnalysis';
 export { RowAnalysis } from './statsPanel/RowAnalysis';
 export { EvenOddAnalysis } from './statsPanel/EvenOddAnalysis';
-export { ConnectionStatus } from './ConnectionStatus'; 
+export { ConnectionStatus } from './ConnectionStatus';
+export { DistributionCharts } from './DistributionCharts';
+
+// Admin components
+export { AdminAuthForm } from './adminAuth/AdminAuthForm'; 

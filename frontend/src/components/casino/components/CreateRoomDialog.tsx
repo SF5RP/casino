@@ -2,17 +2,17 @@
 
 import React, { useState } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Button,
   Alert,
   Box,
-  Typography,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
-  Switch
+  Switch,
+  TextField,
+  Typography
 } from '@mui/material';
 import { Add, Lock, LockOpen } from '@mui/icons-material';
 
@@ -23,10 +23,10 @@ interface CreateRoomDialogProps {
 }
 
 export const CreateRoomDialog: React.FC<CreateRoomDialogProps> = ({
-  open,
-  onSubmit,
-  onCancel
-}) => {
+                                                                    open,
+                                                                    onSubmit,
+                                                                    onCancel
+                                                                  }) => {
   const [roomKey, setRoomKey] = useState('');
   const [password, setPassword] = useState('');
   const [usePassword, setUsePassword] = useState(false);
@@ -35,7 +35,7 @@ export const CreateRoomDialog: React.FC<CreateRoomDialogProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!roomKey.trim()) {
       setError('Введите название комнаты');
       return;
@@ -48,7 +48,7 @@ export const CreateRoomDialog: React.FC<CreateRoomDialogProps> = ({
 
     setIsSubmitting(true);
     setError(null);
-    
+
     try {
       onSubmit(roomKey.trim(), usePassword ? password.trim() : undefined);
     } finally {
@@ -70,8 +70,8 @@ export const CreateRoomDialog: React.FC<CreateRoomDialogProps> = ({
   };
 
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
@@ -82,9 +82,9 @@ export const CreateRoomDialog: React.FC<CreateRoomDialogProps> = ({
         }
       }}
     >
-      <DialogTitle sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
+      <DialogTitle sx={{
+        display: 'flex',
+        alignItems: 'center',
         gap: 1,
         pb: 1
       }}>
@@ -93,7 +93,7 @@ export const CreateRoomDialog: React.FC<CreateRoomDialogProps> = ({
           Создать комнату
         </Typography>
       </DialogTitle>
-      
+
       <DialogContent>
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
@@ -164,16 +164,16 @@ export const CreateRoomDialog: React.FC<CreateRoomDialogProps> = ({
           )}
         </form>
       </DialogContent>
-      
+
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button 
+        <Button
           onClick={handleClose}
           disabled={isSubmitting}
           color="inherit"
         >
           Отмена
         </Button>
-        <Button 
+        <Button
           onClick={handleSubmit}
           disabled={!roomKey.trim() || isSubmitting}
           variant="contained"

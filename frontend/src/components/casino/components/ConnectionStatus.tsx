@@ -92,11 +92,11 @@ const ReconnectButton = styled.button`
 `;
 
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
-  isConnected,
-  isReconnecting,
-  reconnectAttempts,
-  onReconnect
-}) => {
+                                                                    isConnected,
+                                                                    isReconnecting,
+                                                                    reconnectAttempts,
+                                                                    onReconnect
+                                                                  }) => {
   const [showTooltip, setShowTooltip] = React.useState(false);
 
   const getStatusContent = () => {
@@ -117,7 +117,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         title: getText()
       };
     }
-    
+
     if (isConnected) {
       return {
         Component: ConnectedStatus,
@@ -125,7 +125,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         title: 'WebSocket подключен'
       };
     }
-    
+
     return {
       Component: DisconnectedStatus,
       text: 'Нет соединения',

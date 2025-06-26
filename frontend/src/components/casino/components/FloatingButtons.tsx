@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Button } from '@mui/material';
 
 interface FloatingButtonsProps {
@@ -8,18 +8,20 @@ interface FloatingButtonsProps {
   setShowSettings: (show: boolean) => void;
   onDeleteLast?: () => void;
   hasHistory?: boolean;
-  onCreateRoom?: () => void;
+  onToggleDashboard?: () => void;
+  isDashboardMode?: boolean;
 }
 
 export const FloatingButtons: React.FC<FloatingButtonsProps> = ({
-  showStats,
-  setShowStats,
-  showSettings,
-  setShowSettings,
-  onDeleteLast,
-  hasHistory = false,
-  onCreateRoom,
-}) => {
+                                                                  showStats,
+                                                                  setShowStats,
+                                                                  showSettings,
+                                                                  setShowSettings,
+                                                                  onDeleteLast,
+                                                                  hasHistory = false,
+                                                                  onToggleDashboard,
+                                                                  isDashboardMode = false,
+                                                                }) => {
   const [isDeleteConfirming, setIsDeleteConfirming] = useState(false);
 
   // Сброс состояния подтверждения через 3 секунды
@@ -28,7 +30,7 @@ export const FloatingButtons: React.FC<FloatingButtonsProps> = ({
       const timeout = setTimeout(() => {
         setIsDeleteConfirming(false);
       }, 3000);
-      
+
       return () => clearTimeout(timeout);
     }
   }, [isDeleteConfirming]);
@@ -44,15 +46,37 @@ export const FloatingButtons: React.FC<FloatingButtonsProps> = ({
     }
   };
   return (
-    <Box sx={{ 
-      position: 'fixed', 
-      bottom: 20, 
-      right: 20, 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: 1, 
-      zIndex: 1002 
+    <Box sx={{
+      position: 'fixed',
+      bottom: 20,
+      right: 20,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 1,
+      zIndex: 1002
     }}>
+      {onToggleDashboard && (
+        <Button
+          onClick={onToggleDashboard}
+          sx={{
+            minWidth: 'auto',
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            backgroundColor: isDashboardMode ? '#4CAF50' : '#2E7D32',
+            color: 'white',
+            fontSize: '24px',
+            alignSelf: 'flex-end',
+            '&:hover': {
+              backgroundColor: '#4CAF50',
+            },
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          }}
+        >
+          🎛️
+        </Button>
+      )}
+
       <Button
         onClick={() => setShowStats(!showStats)}
         sx={{
@@ -72,7 +96,7 @@ export const FloatingButtons: React.FC<FloatingButtonsProps> = ({
       >
         📊
       </Button>
-      
+
       <Button
         onClick={() => setShowSettings(!showSettings)}
         sx={{
@@ -92,7 +116,7 @@ export const FloatingButtons: React.FC<FloatingButtonsProps> = ({
       >
         ⚙️
       </Button>
-      
+
       {/* Отладка: hasHistory={hasHistory ? 'true' : 'false'}, onDeleteLast={onDeleteLast ? 'exists' : 'missing'} */}
       {hasHistory && onDeleteLast && (
         <Button

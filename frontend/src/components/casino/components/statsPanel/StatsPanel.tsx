@@ -1,13 +1,8 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
-import { getNumberColor, getContrastText } from '../../utils/rouletteUtils';
-
-import { ColorAnalysis } from './ColorAnalysis';
-import { SectorAnalysis } from './SectorAnalysis';
-import { RowAnalysis } from './RowAnalysis';
+import { getContrastText, getNumberColor } from '../../utils/rouletteUtils';
 import { EvenOddAnalysis } from './EvenOddAnalysis';
 import type { RouletteNumber } from '../../types/rouletteTypes';
-import { RouletteStatsCharts } from '../rouletteStatsCharts';
 
 interface StatsPanelProps {
   showStats: boolean;
@@ -18,12 +13,12 @@ interface StatsPanelProps {
 }
 
 export const StatsPanel: React.FC<StatsPanelProps> = ({
-  showStats,
-  setShowStats,
-  setShowDetailedStats,
-  history,
-  isEmbedded = false,
-}) => {
+                                                        showStats,
+                                                        setShowStats,
+                                                        setShowDetailedStats,
+                                                        history,
+                                                        isEmbedded = false,
+                                                      }) => {
   // Подготавливаем данные статистики
   const allNumbers: RouletteNumber[] = [0, ...Array.from({ length: 36 }, (_, i) => i + 1), '00'];
   const statsData = allNumbers.map(num => {
@@ -34,7 +29,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
     const percentage = history.length > 0 ? ((occurrences / history.length) * 100) : 0;
     const expectedPercentage = num === 0 || num === '00' ? 2.7 : 2.7;
     const deviation = percentage - expectedPercentage;
-    
+
     return {
       number: num,
       occurrences,
@@ -47,9 +42,9 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
 
   // Сортируем по количеству выпадений (по убыванию)
   const sortedStats = [...statsData].sort((a, b) => b.occurrences - a.occurrences);
-  
+
   return (
-    <Box 
+    <Box
       sx={isEmbedded ? {
         // Встроенный режим - без позиционирования
         width: '100%',
@@ -74,7 +69,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
       {!isEmbedded && (
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Typography variant="h6" color="white">Статистика чисел</Typography>
-          <Button 
+          <Button
             onClick={() => setShowStats(false)}
             sx={{ color: 'white', minWidth: 'auto', p: 1 }}
           >
@@ -89,12 +84,6 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
         </Typography>
       </Box>
 
-      {history.length > 0 && (
-        <Box mb={3}>
-          <RouletteStatsCharts history={history} />
-        </Box>
-      )}
-
       <Box mt={3}>
         <Typography variant="subtitle2" color="white" mb={2}>
           Топ-3 самых частых:
@@ -104,11 +93,11 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
             <Typography variant="body2" color="#ffd700" fontWeight="bold">
               #{index + 1}
             </Typography>
-            <Box 
-              sx={{ 
-                width: 20, 
-                height: 20, 
-                borderRadius: '50%', 
+            <Box
+              sx={{
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
                 background: color,
                 display: 'flex',
                 alignItems: 'center',
@@ -136,11 +125,11 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
             <Typography variant="body2" color="#ef4444" fontWeight="bold">
               #{index + 1}
             </Typography>
-            <Box 
-              sx={{ 
-                width: 20, 
-                height: 20, 
-                borderRadius: '50%', 
+            <Box
+              sx={{
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
                 background: color,
                 display: 'flex',
                 alignItems: 'center',
@@ -168,7 +157,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
             {(() => {
               const series = [];
               let currentSeries = { number: history[history.length - 1], count: 1 };
-              
+
               for (let i = history.length - 2; i >= 0 && series.length < 5; i--) {
                 if (String(history[i]) === String(currentSeries.number)) {
                   currentSeries.count++;
@@ -179,18 +168,18 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
                   currentSeries = { number: history[i], count: 1 };
                 }
               }
-              
+
               if (currentSeries.count > 1 && series.length < 5) {
                 series.push(currentSeries);
               }
-              
+
               return series.length > 0 ? series.map((serie, index) => (
                 <Box key={index} display="flex" alignItems="center" gap={2} mb={1}>
-                  <Box 
-                    sx={{ 
-                      width: 20, 
-                      height: 20, 
-                      borderRadius: '50%', 
+                  <Box
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
                       background: getNumberColor(serie.number),
                       display: 'flex',
                       alignItems: 'center',
@@ -216,17 +205,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
 
           {/* Статистика в 2 столбца */}
           <Box mt={3} display="flex" gap={2}>
-            {/* Левый столбец */}
-            <Box flex={1}>
-              <ColorAnalysis history={history} />
-              <SectorAnalysis history={history} />
-            </Box>
-
-            {/* Правый столбец */}
-            <Box flex={1}>
-              <RowAnalysis history={history} />
-              <EvenOddAnalysis history={history} />
-            </Box>
+            <EvenOddAnalysis history={history} />
           </Box>
         </>
       )}
@@ -236,8 +215,8 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
         <Button
           variant="outlined"
           onClick={() => setShowDetailedStats(true)}
-          sx={{ 
-            color: 'white', 
+          sx={{
+            color: 'white',
             borderColor: '#555',
             '&:hover': { borderColor: '#777' },
             width: '100%'

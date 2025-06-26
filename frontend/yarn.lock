@@ -64,7 +64,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.18.3, @babel/runtime@npm:^7.25.7, @babel/runtime@npm:^7.26.0, @babel/runtime@npm:^7.27.1, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.8.7":
+"@babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.18.3, @babel/runtime@npm:^7.25.7, @babel/runtime@npm:^7.26.0, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.8.7":
   version: 7.27.6
   resolution: "@babel/runtime@npm:7.27.6"
   checksum: 10c0/89726be83f356f511dcdb74d3ea4d873a5f0cf0017d4530cb53aa27380c01ca102d573eff8b8b77815e624b1f8c24e7f0311834ad4fb632c90a770fda00bd4c8
@@ -758,20 +758,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mui/types@npm:^7.4.3":
-  version: 7.4.3
-  resolution: "@mui/types@npm:7.4.3"
-  dependencies:
-    "@babel/runtime": "npm:^7.27.1"
-  peerDependencies:
-    "@types/react": ^17.0.0 || ^18.0.0 || ^19.0.0
-  peerDependenciesMeta:
-    "@types/react":
-      optional: true
-  checksum: 10c0/8078ed0c63211377af4cf244e0b8a94d15748253139a330f6c7b983b755a57fa89bdba5d8b9ca4c30944b1567115eab3cbb9b9869c14489b0ad3249e858c9fa1
-  languageName: node
-  linkType: hard
-
 "@mui/types@npm:~7.2.24":
   version: 7.2.24
   resolution: "@mui/types@npm:7.2.24"
@@ -784,27 +770,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mui/utils@npm:^5.16.6 || ^6.0.0 || ^7.0.0":
-  version: 7.1.1
-  resolution: "@mui/utils@npm:7.1.1"
-  dependencies:
-    "@babel/runtime": "npm:^7.27.1"
-    "@mui/types": "npm:^7.4.3"
-    "@types/prop-types": "npm:^15.7.14"
-    clsx: "npm:^2.1.1"
-    prop-types: "npm:^15.8.1"
-    react-is: "npm:^19.1.0"
-  peerDependencies:
-    "@types/react": ^17.0.0 || ^18.0.0 || ^19.0.0
-    react: ^17.0.0 || ^18.0.0 || ^19.0.0
-  peerDependenciesMeta:
-    "@types/react":
-      optional: true
-  checksum: 10c0/d2563c4be785a94d55d32df7e51be530bb56a21ffbf4d1ca084c51a8b598ad7ee6d8bb30dd4171691c3b669eea6d8da07280aedd8d96fc539cfd0e0e5b9a48a1
-  languageName: node
-  linkType: hard
-
-"@mui/utils@npm:^6.4.9":
+"@mui/utils@npm:^5.16.6 || ^6.0.0 || ^7.0.0, @mui/utils@npm:^6.4.9":
   version: 6.4.9
   resolution: "@mui/utils@npm:6.4.9"
   dependencies:
@@ -1337,16 +1303,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*":
-  version: 24.0.4
-  resolution: "@types/node@npm:24.0.4"
-  dependencies:
-    undici-types: "npm:~7.8.0"
-  checksum: 10c0/590e8cb0ec59fb9cd566402120e690d87ecbdf57f1ee2b8493266121ed33aa4b25949a0c6156b84a6ffb9250baaf1f80e9af142da542ed603e6ee73fc4d1115f
-  languageName: node
-  linkType: hard
-
-"@types/node@npm:^20":
+"@types/node@npm:*, @types/node@npm:^20":
   version: 20.19.1
   resolution: "@types/node@npm:20.19.1"
   dependencies:
@@ -1389,6 +1346,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/react-grid-layout@npm:^1.3.5":
+  version: 1.3.5
+  resolution: "@types/react-grid-layout@npm:1.3.5"
+  dependencies:
+    "@types/react": "npm:*"
+  checksum: 10c0/abd2a1dda9625c753ff2571a10b69740b2fb9ed1d3141755d54d5814cc12a9701c7c5cd78e8797e945486b441303b82543be71043a32d6a988b57a14237f93c6
+  languageName: node
+  linkType: hard
+
 "@types/react-transition-group@npm:^4.4.12":
   version: 4.4.12
   resolution: "@types/react-transition-group@npm:4.4.12"
@@ -1398,7 +1364,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:^19":
+"@types/react@npm:*, @types/react@npm:^19":
   version: 19.1.8
   resolution: "@types/react@npm:19.1.8"
   dependencies:
@@ -2816,6 +2782,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fast-equals@npm:^4.0.3":
+  version: 4.0.3
+  resolution: "fast-equals@npm:4.0.3"
+  checksum: 10c0/87fd2609c945ee61e9ed4d041eb2a8f92723fc02884115f67e429dd858d880279e962334894f116b3e9b223f387d246e3db5424ae779287849015ddadbf5ff27
+  languageName: node
+  linkType: hard
+
 "fast-glob@npm:3.3.1":
   version: 3.3.1
   resolution: "fast-glob@npm:3.3.1"
@@ -4152,7 +4125,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prop-types@npm:^15.6.2, prop-types@npm:^15.8.1":
+"prop-types@npm:15.x, prop-types@npm:^15.6.2, prop-types@npm:^15.8.1":
   version: 15.8.1
   resolution: "prop-types@npm:15.8.1"
   dependencies:
@@ -4189,6 +4162,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-draggable@npm:^4.0.3, react-draggable@npm:^4.4.6":
+  version: 4.5.0
+  resolution: "react-draggable@npm:4.5.0"
+  dependencies:
+    clsx: "npm:^2.1.1"
+    prop-types: "npm:^15.8.1"
+  peerDependencies:
+    react: ">= 16.3.0"
+    react-dom: ">= 16.3.0"
+  checksum: 10c0/6f7591fe450555218bf0d9e31984be02451bf3f678fb121f51ac0a0a645d01a1b5ea8248ef9afddcd24239028911fd88032194b9c00b30ad5ece76ea13397fc3
+  languageName: node
+  linkType: hard
+
 "react-dropzone@npm:^14.3.8":
   version: 14.3.8
   resolution: "react-dropzone@npm:14.3.8"
@@ -4199,6 +4185,23 @@ __metadata:
   peerDependencies:
     react: ">= 16.8 || 18.0.0"
   checksum: 10c0/e17b1832783cda7b8824fe9370e99185d1abbdd5e4980b2985d6321c5768c8de18ff7b9ad550c809ee9743269dea608ff74d5208062754ce8377ad022897b278
+  languageName: node
+  linkType: hard
+
+"react-grid-layout@npm:^1.5.2":
+  version: 1.5.2
+  resolution: "react-grid-layout@npm:1.5.2"
+  dependencies:
+    clsx: "npm:^2.1.1"
+    fast-equals: "npm:^4.0.3"
+    prop-types: "npm:^15.8.1"
+    react-draggable: "npm:^4.4.6"
+    react-resizable: "npm:^3.0.5"
+    resize-observer-polyfill: "npm:^1.5.1"
+  peerDependencies:
+    react: ">= 16.3.0"
+    react-dom: ">= 16.3.0"
+  checksum: 10c0/b6605d1435fe116c3720d168100a5a08da924c6905686fe8a486c33b82abbde8ccacbb59e5c6243fa52f5e808ad393a7bdf0c09a3446ebf76efe43f29d9f13ee
   languageName: node
   linkType: hard
 
@@ -4218,7 +4221,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-is@npm:^19.0.0, react-is@npm:^19.1.0":
+"react-is@npm:^19.0.0":
   version: 19.1.0
   resolution: "react-is@npm:19.1.0"
   checksum: 10c0/b6c6cadd172d5d39f66d493700d137a5545c294a62ce0f8ec793d59794c97d2bed6bad227626f16bd0e90004ed7fdc8ed662a004e6edcf5d2b7ecb6e3040ea6b
@@ -4241,6 +4244,18 @@ __metadata:
     redux:
       optional: true
   checksum: 10c0/00d485f9d9219ca1507b4d30dde5f6ff8fb68ba642458f742e0ec83af052f89e65cd668249b99299e1053cc6ad3d2d8ac6cb89e2f70d2ac5585ae0d7fa0ef259
+  languageName: node
+  linkType: hard
+
+"react-resizable@npm:^3.0.5":
+  version: 3.0.5
+  resolution: "react-resizable@npm:3.0.5"
+  dependencies:
+    prop-types: "npm:15.x"
+    react-draggable: "npm:^4.0.3"
+  peerDependencies:
+    react: ">= 16.3"
+  checksum: 10c0/cfe50aa6efb79e0aa09bd681a5beab2fcd1186737c4952eb4c3974ed9395d5d263ccd1130961d06b8f5e24c8f544dd2967b5c740ce68719962d1771de7bdb350
   languageName: node
   linkType: hard
 
@@ -4341,6 +4356,13 @@ __metadata:
   version: 5.1.1
   resolution: "reselect@npm:5.1.1"
   checksum: 10c0/219c30da122980f61853db3aebd173524a2accd4b3baec770e3d51941426c87648a125ca08d8c57daa6b8b086f2fdd2703cb035dd6231db98cdbe1176a71f489
+  languageName: node
+  linkType: hard
+
+"resize-observer-polyfill@npm:^1.5.1":
+  version: 1.5.1
+  resolution: "resize-observer-polyfill@npm:1.5.1"
+  checksum: 10c0/5e882475067f0b97dc07e0f37c3e335ac5bc3520d463f777cec7e894bb273eddbfecb857ae668e6fb6881fd6f6bb7148246967172139302da50fa12ea3a15d95
   languageName: node
   linkType: hard
 
@@ -5006,13 +5028,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici-types@npm:~7.8.0":
-  version: 7.8.0
-  resolution: "undici-types@npm:7.8.0"
-  checksum: 10c0/9d9d246d1dc32f318d46116efe3cfca5a72d4f16828febc1918d94e58f6ffcf39c158aa28bf5b4fc52f410446bc7858f35151367bd7a49f21746cab6497b709b
-  languageName: node
-  linkType: hard
-
 "unrs-resolver@npm:^1.6.2":
   version: 1.9.2
   resolution: "unrs-resolver@npm:1.9.2"
@@ -5096,6 +5111,7 @@ __metadata:
     "@types/pg": "npm:^8.15.4"
     "@types/react": "npm:^19"
     "@types/react-dom": "npm:^19"
+    "@types/react-grid-layout": "npm:^1.3.5"
     eslint: "npm:^9"
     eslint-config-next: "npm:15.3.2"
     next: "npm:15.0.3"
@@ -5105,6 +5121,7 @@ __metadata:
     react: "npm:^18.3.1"
     react-dom: "npm:^18.3.1"
     react-dropzone: "npm:^14.3.8"
+    react-grid-layout: "npm:^1.5.2"
     react-hook-form: "npm:^7.52.1"
     recharts: "npm:^3.0.0"
     typescript: "npm:^5"

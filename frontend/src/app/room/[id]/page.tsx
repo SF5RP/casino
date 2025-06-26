@@ -1,31 +1,31 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useRouletteWebSocket } from '@/components/casino/hooks/useRouletteHistory';
 import { useConnectionNotifications } from '@/components/casino/hooks/useConnectionNotifications';
 import { useSnackbar } from 'notistack';
-import { useSearchParams, useRouter, useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useRouletteSettings } from '@/components/casino/hooks/useRouletteSettings';
-import { calculateAgeMap, getNumberColor, getContrastText } from '@/components/casino/utils/rouletteUtils';
+import { calculateAgeMap, getContrastText, getNumberColor } from '@/components/casino/utils/rouletteUtils';
 import { RouletteBoard } from '@/components/casino/components/rouletteBoard/RouletteBoard';
 import { HistoryPanel } from '@/components/casino/components/HistoryPanel';
 import { StatsPanel } from '@/components/casino/components/statsPanel/StatsPanel';
 import { SettingsPanel } from '@/components/casino/components/SettingsPanel';
 import { DetailedStatsModal } from '@/components/casino/components/DetailedStatsModal';
-import { GameInfo } from '@/components/casino/components/GameInfo';
 import { FloatingButtons } from '@/components/casino/components/FloatingButtons';
 import { ForecastPanel } from '@/components/casino/components/ForecastPanel';
 import { ConnectionStatus } from '@/components/casino/components/ConnectionStatus';
 import { PasswordEntryForm } from '@/components/casino/components/PasswordEntryForm';
 import { CreateRoomDialog } from '@/components/casino/components/CreateRoomDialog';
-import type { SortBy, RouletteNumber } from '@/components/casino/types/rouletteTypes';
+import type { RouletteNumber, SortBy } from '@/components/casino/types/rouletteTypes';
 import { RouletteTrendsChart } from '@/components/casino/components/rouletteTrendsChart';
+import { DraggableDashboard } from '@/components/casino/components/dashboard';
+import { DistributionCharts } from '@/components/casino/components/DistributionCharts';
 
 const RoomPageContent: React.FC = () => {
   const params = useParams();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
   const key = params?.id as string | undefined;
@@ -77,6 +77,8 @@ const RoomPageContent: React.FC = () => {
   const [isHistoryWide, setIsHistoryWide] = useState(false);
   const [hoveredNumber, setHoveredNumber] = useState<RouletteNumber | null>(null);
   const [lastHoveredNumber, setLastHoveredNumber] = useState<RouletteNumber | null>(null);
+  const [isDashboardMode, setIsDashboardMode] = useState(false);
+  const [isDashboardEditMode, setIsDashboardEditMode] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -144,8 +146,8 @@ const RoomPageContent: React.FC = () => {
       setShowPasswordDialog(false);
       forceReconnect();
       return true;
-    } catch (error: any) {
-      enqueueSnackbar(error.message, { variant: 'error' });
+    } catch (error: unknown) {
+      enqueueSnackbar(error instanceof Error ? error.message : 'Неизвестная ошибка', { variant: 'error' });
       return false;
     }
   };
@@ -153,15 +155,6 @@ const RoomPageContent: React.FC = () => {
   const handlePasswordSubmit = (password: string) => {
     authenticate(password);
   };
-
-  const handlePasswordCancel = useCallback(() => {
-    setShowPasswordDialog(false);
-    router.replace(`/room/${Math.random().toString(36).substring(2, 15)}`);
-  }, [router]);
-
-  const handleCreateRoom = useCallback(() => {
-    setShowCreateRoomDialog(true);
-  }, []);
 
   const handleCreateRoomSubmit = async (roomKey: string, password?: string) => {
     setIsAuthenticating(true);
@@ -175,7 +168,7 @@ const RoomPageContent: React.FC = () => {
       if (!res.ok) {
         throw new Error((await res.json()).error || 'Не удалось создать комнату');
       }
-      
+
       const { token } = await res.json();
       if (typeof window !== 'undefined') {
         window.sessionStorage.setItem(`token_${roomKey}`, token);
@@ -184,8 +177,8 @@ const RoomPageContent: React.FC = () => {
       setShowCreateRoomDialog(false);
       router.push(`/room/${roomKey}`);
 
-    } catch (error: any) {
-      enqueueSnackbar(error.message, { variant: 'error' });
+    } catch (error: unknown) {
+      enqueueSnackbar(error instanceof Error ? error.message : 'Неизвестная ошибка', { variant: 'error' });
     } finally {
       setIsAuthenticating(false);
     }
@@ -215,6 +208,86 @@ const RoomPageContent: React.FC = () => {
   }
 
   if (!key) return null;
+
+  if (isDashboardMode) {
+    return (
+      <Box sx={{ minHeight: '100vh', p: 2, bgcolor: '#0a0a0a' }}>
+        <Box sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 2,
+          p: 2,
+          bgcolor: '#1a1a1a',
+          borderRadius: 2,
+        }}>
+          <Typography variant="h4" color="white">
+            Dashboard - Комната {key}
+          </Typography>
+          <Box>
+            <Box
+              onClick={() => setIsDashboardMode(false)}
+              sx={{
+                px: 2,
+                py: 1,
+                bgcolor: '#333',
+                borderRadius: 1,
+                cursor: 'pointer',
+                color: 'white',
+                '&:hover': { bgcolor: '#444' },
+              }}
+            >
+              ← Обычный режим
+            </Box>
+          </Box>
+        </Box>
+
+        <DraggableDashboard
+          history={history}
+          ageMap={ageMap}
+          chartHistoryLength={chartHistoryLength}
+          onToggleSettings={() => setShowSettings(!showSettings)}
+          isEditMode={isDashboardEditMode}
+          onToggleEditMode={() => setIsDashboardEditMode(!isDashboardEditMode)}
+          setHistory={handleSetHistory}
+          activeLabel={activeLabel}
+          activeGroup={activeGroup}
+          setActiveLabel={handleSetActiveLabel}
+          setActiveGroup={handleSetActiveGroup}
+          setHoveredNumber={handleSetHoveredNumber}
+          showFullHistory={showFullHistory}
+          isHistoryWide={isHistoryWide}
+          hoveredNumber={hoveredNumber}
+          lastHoveredNumber={lastHoveredNumber}
+        />
+
+        <ConnectionStatus
+          isConnected={isConnected}
+          isReconnecting={isReconnecting}
+          reconnectAttempts={reconnectAttempts}
+          onReconnect={forceReconnect}
+        />
+
+        <SettingsPanel
+          showSettings={showSettings}
+          setShowSettings={setShowSettings}
+          setShowStats={setShowStats}
+          historyRows={historyRows}
+          updateHistoryRows={updateHistoryRows}
+          historyLength={history.length}
+          showFullHistory={showFullHistory}
+          setShowFullHistory={setShowFullHistory}
+          onShare={handleShare}
+          onReset={resetAll}
+          onDeleteLast={deleteLast}
+          chartHistoryLength={chartHistoryLength}
+          setChartHistoryLength={setChartHistoryLength}
+          isHistoryWide={isHistoryWide}
+          setIsHistoryWide={setIsHistoryWide}
+        />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -250,8 +323,17 @@ const RoomPageContent: React.FC = () => {
           />
         </Box>
       )}
-      
-      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', px: 2, py: 4 }}>
+
+      <Box sx={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        px: 2,
+        py: 4,
+        justifyContent: 'flex-start'
+      }}>
         {!isWideScreen && (
           <StatsPanel
             showStats={showStats}
@@ -264,7 +346,6 @@ const RoomPageContent: React.FC = () => {
 
         <HistoryPanel
           history={history}
-          setHistory={setHistory}
           showFullHistory={showFullHistory}
           historyRows={historyRows}
           isWide={isHistoryWide}
@@ -282,14 +363,9 @@ const RoomPageContent: React.FC = () => {
           setHoveredNumber={handleSetHoveredNumber}
         />
 
-        <Box display="flex" gap={2} mt={2} mb={2} flexWrap="wrap" justifyContent="center" width="100%">
-          <Box flex={1} minWidth={300}>
-            <GameInfo history={history as number[]} ageMap={ageMap} />
-          </Box>
-          
-          <Box flex={2} minWidth={600}>
-            <RouletteTrendsChart history={history as number[]} chartHistoryLength={chartHistoryLength} />
-          </Box>
+
+        <Box minWidth={600}>
+          <RouletteTrendsChart history={history as number[]} chartHistoryLength={chartHistoryLength} />
         </Box>
 
         <Box mt={2} mb={2} p={2} bgcolor="#181818" borderRadius={2} minHeight={48} width="100%" maxWidth={600}>
@@ -320,7 +396,18 @@ const RoomPageContent: React.FC = () => {
               const sinceLast = lastIndex === -1 ? '' : `${lastIndex}`;
               return (
                 <Box display="flex" alignItems="center" gap={2}>
-                  <Box sx={{ width: 32, height: 32, borderRadius: 1, background: getNumberColor(num!), color: getContrastText(getNumberColor(num!)), fontWeight: 'bold', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{num}</Box>
+                  <Box sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 1,
+                    background: getNumberColor(num!),
+                    color: getContrastText(getNumberColor(num!)),
+                    fontWeight: 'bold',
+                    fontSize: 18,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>{num}</Box>
                   <Box fontSize={14} color="#eee">
                     <div>Выпадений: <b>{occurrences}</b></div>
                     <div>Процент: <b>{percentage.toFixed(1)}%</b></div>
@@ -346,6 +433,9 @@ const RoomPageContent: React.FC = () => {
         }}
       >
         <ForecastPanel history={history} />
+        <Box mt={2}>
+          <DistributionCharts history={history} />
+        </Box>
         <Box mt={2} p={1} bgcolor="#181818" borderRadius={2}>
           <Box display="flex" fontSize={12} color="#aaa" fontWeight={500} mb={0.5}>
             <Box width={28}>№</Box>
@@ -360,7 +450,6 @@ const RoomPageContent: React.FC = () => {
             const numStr = String(num);
             const occurrences = history.filter(h => String(h) === numStr).length;
             const lastIndex = [...history].reverse().findIndex(h => String(h) === numStr);
-            const lastOccurrence = lastIndex === -1 ? '' : `${lastIndex}`;
             const percentage = history.length > 0 ? ((occurrences / history.length) * 100) : 0;
             const color = getNumberColor(num);
             let avgInterval = '';
@@ -383,7 +472,8 @@ const RoomPageContent: React.FC = () => {
               <Box key={num} display="flex" alignItems="center" fontSize={12} color="#eee" py={0.2}>
                 <Box width={28}>{num}</Box>
                 <Box width={18} display="flex" alignItems="center" justifyContent="center">
-                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', background: color, border: '1px solid #333' }} />
+                  <Box
+                    sx={{ width: 10, height: 10, borderRadius: '50%', background: color, border: '1px solid #333' }} />
                 </Box>
                 <Box width={32} textAlign="right">{occurrences}</Box>
                 <Box width={36} textAlign="right">{percentage.toFixed(1)}</Box>
@@ -396,6 +486,13 @@ const RoomPageContent: React.FC = () => {
         </Box>
       </Box>
 
+      <ConnectionStatus
+        isConnected={isConnected}
+        isReconnecting={isReconnecting}
+        reconnectAttempts={reconnectAttempts}
+        onReconnect={forceReconnect}
+      />
+
       <FloatingButtons
         showStats={showStats}
         setShowStats={setShowStats}
@@ -403,33 +500,34 @@ const RoomPageContent: React.FC = () => {
         setShowSettings={setShowSettings}
         onDeleteLast={deleteLast}
         hasHistory={history.length > 0}
-        onCreateRoom={handleCreateRoom}
+        onToggleDashboard={() => setIsDashboardMode(!isDashboardMode)}
+        isDashboardMode={isDashboardMode}
       />
-      
+
       <CreateRoomDialog
         open={showCreateRoomDialog}
         onSubmit={handleCreateRoomSubmit}
         onCancel={handleCreateRoomCancel}
       />
-      
-              <SettingsPanel
-          showSettings={showSettings}
-          setShowSettings={setShowSettings}
-          setShowStats={setShowStats}
-          historyRows={historyRows}
-          updateHistoryRows={updateHistoryRows}
-          historyLength={history.length}
-          showFullHistory={showFullHistory}
-          setShowFullHistory={setShowFullHistory}
-          onShare={handleShare}
-          onReset={resetAll}
-          onDeleteLast={deleteLast}
-          chartHistoryLength={chartHistoryLength}
-          setChartHistoryLength={setChartHistoryLength}
-          isHistoryWide={isHistoryWide}
-          setIsHistoryWide={setIsHistoryWide}
-        />
-      
+
+      <SettingsPanel
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        setShowStats={setShowStats}
+        historyRows={historyRows}
+        updateHistoryRows={updateHistoryRows}
+        historyLength={history.length}
+        showFullHistory={showFullHistory}
+        setShowFullHistory={setShowFullHistory}
+        onShare={handleShare}
+        onReset={resetAll}
+        onDeleteLast={deleteLast}
+        chartHistoryLength={chartHistoryLength}
+        setChartHistoryLength={setChartHistoryLength}
+        isHistoryWide={isHistoryWide}
+        setIsHistoryWide={setIsHistoryWide}
+      />
+
       <DetailedStatsModal
         open={showDetailedStats}
         onClose={() => setShowDetailedStats(false)}

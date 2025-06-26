@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, Typography } from '@mui/material';
-import { getNumberColor, getContrastText } from '../utils/rouletteUtils';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
+import { getContrastText, getNumberColor } from '../utils/rouletteUtils';
 import type { RouletteNumber, SortBy, StatsData } from '../types/rouletteTypes';
 
 interface DetailedStatsModalProps {
@@ -12,14 +12,14 @@ interface DetailedStatsModalProps {
 }
 
 export const DetailedStatsModal: React.FC<DetailedStatsModalProps> = ({
-  open,
-  onClose,
-  history,
-  sortBy,
-  setSortBy,
-}) => {
+                                                                        open,
+                                                                        onClose,
+                                                                        history,
+                                                                        sortBy,
+                                                                        setSortBy,
+                                                                      }) => {
   const allNumbers: RouletteNumber[] = [0, ...Array.from({ length: 36 }, (_, i) => i + 1), '00'];
-  
+
   // Подготавливаем данные для сортировки
   const statsData: StatsData[] = allNumbers.map(num => {
     const numStr = String(num);
@@ -30,7 +30,7 @@ export const DetailedStatsModal: React.FC<DetailedStatsModalProps> = ({
     const expectedPercentage = 2.7;
     const deviation = percentage - expectedPercentage;
     const color = getNumberColor(num);
-    
+
     return {
       number: num,
       occurrences,
@@ -59,7 +59,7 @@ export const DetailedStatsModal: React.FC<DetailedStatsModalProps> = ({
         return (a.number as number) - (b.number as number);
     }
   });
-  
+
   return (
     <Dialog
       open={open}
@@ -82,8 +82,8 @@ export const DetailedStatsModal: React.FC<DetailedStatsModalProps> = ({
               size="small"
               variant={sortBy === 'number' ? 'contained' : 'outlined'}
               onClick={() => setSortBy('number')}
-              sx={{ 
-                color: 'white', 
+              sx={{
+                color: 'white',
                 borderColor: '#555',
                 '&:hover': { borderColor: '#777' },
                 minWidth: 'auto',
@@ -96,8 +96,8 @@ export const DetailedStatsModal: React.FC<DetailedStatsModalProps> = ({
               size="small"
               variant={sortBy === 'frequency' ? 'contained' : 'outlined'}
               onClick={() => setSortBy('frequency')}
-              sx={{ 
-                color: 'white', 
+              sx={{
+                color: 'white',
                 borderColor: '#555',
                 '&:hover': { borderColor: '#777' },
                 minWidth: 'auto',
@@ -110,8 +110,8 @@ export const DetailedStatsModal: React.FC<DetailedStatsModalProps> = ({
               size="small"
               variant={sortBy === 'recent' ? 'contained' : 'outlined'}
               onClick={() => setSortBy('recent')}
-              sx={{ 
-                color: 'white', 
+              sx={{
+                color: 'white',
                 borderColor: '#555',
                 '&:hover': { borderColor: '#777' },
                 minWidth: 'auto',
@@ -126,11 +126,11 @@ export const DetailedStatsModal: React.FC<DetailedStatsModalProps> = ({
           Сортировка: {sortBy === 'number' ? 'По номеру' : sortBy === 'frequency' ? 'По частоте' : 'По времени'}
         </Typography>
       </DialogTitle>
-      
+
       <DialogContent sx={{ p: 0 }}>
         <Box sx={{ maxHeight: '60vh', overflowY: 'auto', p: 2 }}>
           {sortedData.map(({ number, occurrences, lastOccurrence, percentage, deviation, color }) => (
-            <Box 
+            <Box
               key={String(number)}
               sx={{
                 display: 'flex',
@@ -147,11 +147,11 @@ export const DetailedStatsModal: React.FC<DetailedStatsModalProps> = ({
               }}
             >
               <Box display="flex" alignItems="center" gap={2}>
-                <Box 
-                  sx={{ 
-                    width: 28, 
-                    height: 28, 
-                    borderRadius: '50%', 
+                <Box
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
                     background: color,
                     display: 'flex',
                     alignItems: 'center',
@@ -172,10 +172,10 @@ export const DetailedStatsModal: React.FC<DetailedStatsModalProps> = ({
                   </Typography>
                 </Box>
               </Box>
-              
+
               <Box textAlign="right">
-                <Typography 
-                  variant="body2" 
+                <Typography
+                  variant="body2"
                   color={deviation > 0 ? '#4ade80' : deviation < 0 ? '#ef4444' : '#999'}
                   fontWeight="bold"
                 >
@@ -189,12 +189,12 @@ export const DetailedStatsModal: React.FC<DetailedStatsModalProps> = ({
           ))}
         </Box>
       </DialogContent>
-      
+
       <DialogActions sx={{ borderTop: '1px solid #333', p: 2 }}>
         <Typography variant="body2" color="#ccc" sx={{ flexGrow: 1 }}>
           Всего ставок: {history.length}
         </Typography>
-        <Button 
+        <Button
           onClick={onClose}
           sx={{ color: 'white' }}
         >

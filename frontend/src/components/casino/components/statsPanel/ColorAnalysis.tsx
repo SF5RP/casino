@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { RED_NUMBERS, BLACK_NUMBERS } from '../../constants/rouletteConstants';
+import { BLACK_NUMBERS, RED_NUMBERS } from '../../constants/rouletteConstants';
 import type { RouletteNumber } from '../../types/rouletteTypes';
 
 interface ColorAnalysisProps {

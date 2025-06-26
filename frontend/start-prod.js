@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const {spawn} = require('child_process');
 const config = require('./config');
 
 console.log('🚀 Запуск Next.js приложения рулетки (PRODUCTION)...\n');
@@ -15,15 +15,15 @@ buildProcess.on('close', (code) => {
     console.error('❌ Ошибка при сборке приложения');
     process.exit(1);
   }
-  
+
   console.log('✅ Сборка завершена успешно\n');
-  
+
   // Запускаем только продакшен версию Next.js
   console.log(`🌐 Запуск Next.js приложения на порту ${config.APP_PORT}...`);
   const nextApp = spawn('npm', ['run', 'start'], {
     stdio: 'pipe',
-    env: { 
-      ...process.env, 
+    env: {
+      ...process.env,
       NODE_ENV: 'production',
       PORT: config.APP_PORT
     },

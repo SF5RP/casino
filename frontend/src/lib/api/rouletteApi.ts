@@ -20,7 +20,7 @@ const BASE_URL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localh
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
-  
+
   const config: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
@@ -30,11 +30,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   };
 
   const response = await fetch(url, config);
-  
+
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
-  
+
   return await response.json();
 }
 

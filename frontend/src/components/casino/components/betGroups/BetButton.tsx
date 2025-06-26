@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Button, Tooltip, Box } from '@mui/material';
+import { Box, Button, Tooltip } from '@mui/material';
 import { calculateGroupAge, getProgressColor } from '../../utils/rouletteUtils';
 import type { RouletteNumber } from '../../types/rouletteTypes';
 
@@ -14,41 +14,41 @@ interface BetButtonProps {
 }
 
 const BetButtonComponent: React.FC<BetButtonProps> = ({
-  label,
-  group,
-  history,
-  activeLabel,
-  setActiveLabel,
-  setActiveGroup,
-  buttonType,
-}) => {
+                                                        label,
+                                                        group,
+                                                        history,
+                                                        activeLabel,
+                                                        setActiveLabel,
+                                                        setActiveGroup,
+                                                        buttonType,
+                                                      }) => {
   // Мемоизируем расчет возраста группы
   const groupAge = useMemo(() => {
     return calculateGroupAge(history, group);
   }, [history, group]);
-  
+
   const bg = '#52b788'; // Более бледный зеленый фон для всех кнопок
   const isActive = activeLabel === label;
-  
+
   // Мемоизируем стили для оптимизации
   const buttonStyles = useMemo(() => {
     const hasProgress = groupAge > 0;
-    
+
     let background = bg;
     const border = isActive ? '2px solid #f1c40f' : '3px solid transparent';
     let backgroundOrigin = 'padding-box';
     let backgroundClip = 'padding-box';
-    
+
     if (hasProgress) {
       const progressColor = getProgressColor(groupAge);
       const normalizedProgress = Math.min(groupAge / 30, 1);
       const progressAngle = normalizedProgress * 360;
-      
+
       background = `linear-gradient(${bg}, ${bg}) padding-box, conic-gradient(from 0deg, ${progressColor} 0deg, ${progressColor} ${progressAngle}deg, transparent ${progressAngle}deg, transparent 360deg) border-box`;
       backgroundOrigin = 'border-box';
       backgroundClip = 'padding-box, border-box';
     }
-    
+
     return {
       background,
       border,
@@ -64,7 +64,7 @@ const BetButtonComponent: React.FC<BetButtonProps> = ({
         onClick={() => {
           const startTime = performance.now();
           console.log(`🎯 Клик по сектору "${label}"`);
-          
+
           if (isActive) {
             setActiveLabel('');
             setActiveGroup([]);
@@ -72,7 +72,7 @@ const BetButtonComponent: React.FC<BetButtonProps> = ({
             setActiveLabel(label);
             setActiveGroup(group);
           }
-          
+
           const endTime = performance.now();
           console.log(`⚡ Клик по сектору "${label}": ${(endTime - startTime).toFixed(2)}ms`);
         }}
@@ -81,8 +81,8 @@ const BetButtonComponent: React.FC<BetButtonProps> = ({
           color: '#ffffff',
           borderRadius: '6px',
           transition: 'transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease',
-          height: buttonType === 'sector' 
-            ? 'calc(var(--cell-size, 44px) * 1.1)' 
+          height: buttonType === 'sector'
+            ? 'calc(var(--cell-size, 44px) * 1.1)'
             : 'calc(var(--cell-size, 44px) * 1.0)',
           fontSize: buttonType === 'sector'
             ? 'calc(var(--cell-size, 44px) * 0.28)'
@@ -109,8 +109,8 @@ const BetButtonComponent: React.FC<BetButtonProps> = ({
         <Box sx={{ fontSize: 'inherit', fontWeight: 'inherit' }}>
           {label}
         </Box>
-        <Box sx={{ 
-          fontSize: 'calc(var(--cell-size, 44px) * 0.22)', 
+        <Box sx={{
+          fontSize: 'calc(var(--cell-size, 44px) * 0.22)',
           opacity: 0.9,
           minFontSize: '8px',
           fontWeight: 'bold'

@@ -8,38 +8,47 @@ interface UseConnectionNotificationsProps {
 }
 
 export function useConnectionNotifications({
-  isConnected,
-  isReconnecting,
-  reconnectAttempts
-}: UseConnectionNotificationsProps) {
+                                             isConnected,
+                                             isReconnecting,
+                                             reconnectAttempts
+                                           }: UseConnectionNotificationsProps) {
   const { enqueueSnackbar, closeSnackbar } = useSnackbar();
   const previousConnectedRef = useRef<boolean | null>(null);
   const reconnectingSnackbarRef = useRef<string | number | null>(null);
+  const hasBeenConnectedRef = useRef(false);
 
   useEffect(() => {
-    // Первое подключение - не показываем уведомление
+    // Первое подключение - не показываем уведомление, только отмечаем что были подключены
     if (previousConnectedRef.current === null) {
       previousConnectedRef.current = isConnected;
+      if (isConnected) {
+        hasBeenConnectedRef.current = true;
+      }
       return;
     }
 
     // Подключение восстановлено
     if (isConnected && !previousConnectedRef.current) {
+      hasBeenConnectedRef.current = true;
+
       // Закрываем уведомление о переподключении если есть
       if (reconnectingSnackbarRef.current) {
         closeSnackbar(reconnectingSnackbarRef.current);
         reconnectingSnackbarRef.current = null;
       }
-      
-      enqueueSnackbar('✅ Соединение восстановлено', { 
-        variant: 'success',
-        autoHideDuration: 3000,
-      });
+
+      // Показываем уведомление о восстановлении только если это не первое подключение
+      if (hasBeenConnectedRef.current) {
+        enqueueSnackbar('✅ Соединение восстановлено', {
+          variant: 'success',
+          autoHideDuration: 3000,
+        });
+      }
     }
 
-    // Соединение потеряно
-    if (!isConnected && previousConnectedRef.current) {
-      enqueueSnackbar('❌ Соединение потеряно', { 
+    // Соединение потеряно - показываем только если уже были подключены
+    if (!isConnected && previousConnectedRef.current && hasBeenConnectedRef.current) {
+      enqueueSnackbar('❌ Соединение потеряно', {
         variant: 'error',
         autoHideDuration: 5000,
       });
@@ -49,26 +58,30 @@ export function useConnectionNotifications({
   }, [isConnected, enqueueSnackbar, closeSnackbar]);
 
   useEffect(() => {
-    if (isReconnecting && reconnectAttempts > 0) {
+    // Показываем уведомления о переподключении только начиная с 5-й попытки
+    if (isReconnecting && reconnectAttempts >= 5) {
       // Закрываем предыдущее уведомление о переподключении
       if (reconnectingSnackbarRef.current) {
         closeSnackbar(reconnectingSnackbarRef.current);
       }
 
+      // Вычисляем отображаемый номер попытки (5-я попытка = 1-я в уведомлении)
+      const displayAttempt = reconnectAttempts - 4;
+
       // Показываем новое уведомление с дополнительной информацией для длительных попыток
       const getMessage = () => {
-        if (reconnectAttempts <= 3) {
-          return `🔄 Переподключение... (попытка ${reconnectAttempts})`;
-        } else if (reconnectAttempts <= 7) {
-          return `🔄 Переподключение... (попытка ${reconnectAttempts}) - проверьте соединение`;
+        if (displayAttempt <= 3) {
+          return `🔄 Переподключение... (попытка ${displayAttempt})`;
+        } else if (displayAttempt <= 7) {
+          return `🔄 Переподключение... (попытка ${displayAttempt}) - проверьте соединение`;
         } else {
-          return `🔄 Переподключение... (попытка ${reconnectAttempts}) - проблемы с сервером`;
+          return `🔄 Переподключение... (попытка ${displayAttempt}) - проблемы с сервером`;
         }
       };
 
       reconnectingSnackbarRef.current = enqueueSnackbar(
-        getMessage(), 
-        { 
+        getMessage(),
+        {
           variant: 'info',
           persist: true, // Не скрываем автоматически
         }

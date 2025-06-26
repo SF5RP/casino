@@ -28,6 +28,7 @@ npm run docker:compose:build
 ### 3. Облачные платформы
 
 #### Vercel (рекомендуется для Next.js)
+
 ```bash
 # Установка Vercel CLI
 npm i -g vercel
@@ -42,6 +43,7 @@ vercel
 ```
 
 #### Railway
+
 ```bash
 # Установка Railway CLI
 npm i -g @railway/cli
@@ -52,6 +54,7 @@ railway deploy
 ```
 
 #### Heroku
+
 ```bash
 # Установка Heroku CLI и деплой
 heroku create your-app-name
@@ -66,11 +69,13 @@ heroku config:set WS_PORT=3002
 ## Переменные окружения
 
 ### Обязательные для продакшена:
+
 - `NODE_ENV=production`
 - `APP_PORT` - порт для Next.js приложения (по умолчанию 3000)
 - `WS_PORT` - порт для WebSocket сервера (по умолчанию 3002)
 
 ### Для клиентской части:
+
 - `NEXT_PUBLIC_WS_PORT` - порт WebSocket сервера
 - `NEXT_PUBLIC_WS_HOST` - хост WebSocket сервера (localhost для локального деплоя)
 - `NEXT_PUBLIC_WS_PROTOCOL` - протокол (ws для HTTP, wss для HTTPS)
@@ -81,10 +86,12 @@ heroku config:set WS_PORT=3002
 ### 1. Разделенный деплой (рекомендуется)
 
 **Next.js приложение на Vercel:**
+
 - Деплоим только фронтенд на Vercel
 - Настраиваем переменные окружения для подключения к внешнему WebSocket серверу
 
 **WebSocket сервер на отдельном сервере:**
+
 ```bash
 # На сервере (VPS, Railway, Heroku)
 node wsServer.js
@@ -93,6 +100,7 @@ node wsServer.js
 ### 2. Монолитный деплой
 
 **Все в одном контейнере:**
+
 ```bash
 docker-compose up -d
 ```
@@ -133,11 +141,13 @@ spec:
 ## Мониторинг и логи
 
 ### Docker логи:
+
 ```bash
 docker-compose logs -f
 ```
 
 ### PM2 для продакшена:
+
 ```bash
 # Установка PM2
 npm install -g pm2
@@ -165,26 +175,31 @@ pm2 startup
 ## Безопасность
 
 ### 1. HTTPS/WSS в продакшене
+
 - Используйте `wss://` вместо `ws://` для WebSocket
 - Настройте SSL сертификаты
 
 ### 2. Переменные окружения
+
 - Никогда не коммитьте `.env` файлы
 - Используйте секреты платформы для чувствительных данных
 
 ### 3. Firewall
+
 - Откройте только необходимые порты
 - Используйте reverse proxy (nginx) для дополнительной безопасности
 
 ## Troubleshooting
 
 ### WebSocket подключение не работает:
+
 1. Проверьте правильность `NEXT_PUBLIC_WS_*` переменных
 2. Убедитесь, что WebSocket сервер запущен
 3. Проверьте firewall и сетевые настройки
 4. Для HTTPS сайтов используйте WSS протокол
 
 ### Приложение не запускается:
+
 1. Проверьте логи: `docker-compose logs`
 2. Убедитесь, что порты не заняты
 3. Проверьте переменные окружения

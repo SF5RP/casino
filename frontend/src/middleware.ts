@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export function middleware(_request: NextRequest) {
   // Отключаем middleware для работы главной страницы
   return NextResponse.next();
-  
+
   // const host = request.headers.get('host') || '';
   // const subdomain = host.split('.')[0];
   // const url = request.nextUrl.clone();

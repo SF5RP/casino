@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Box, Typography, LinearProgress } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { buildCombinedForecast } from '../utils/forecastUtils';
 import { getNumberColor } from '../utils/rouletteUtils';
 import type { RouletteNumber } from '../types/rouletteTypes';
@@ -9,10 +9,10 @@ interface ForecastPanelProps {
   maxPredictions?: number;
 }
 
-export const ForecastPanel: React.FC<ForecastPanelProps> = ({ 
-  history, 
-  maxPredictions = 10 
-}) => {
+export const ForecastPanel: React.FC<ForecastPanelProps> = ({
+                                                              history,
+                                                              maxPredictions = 10
+                                                            }) => {
   const forecast = useMemo(() => {
     if (history.length < 5) return []; // Минимум 5 ставок для прогноза
     return buildCombinedForecast(history).slice(0, maxPredictions);
@@ -34,7 +34,15 @@ export const ForecastPanel: React.FC<ForecastPanelProps> = ({
   const maxProbability = forecast[0]?.probability || 0;
 
   return (
-    <Box sx={{ p: 1, backgroundColor: '#1a1a1a', borderRadius: 2, border: '1px solid #333', fontSize: 12, maxHeight: '100%', overflow: 'hidden' }}>
+    <Box sx={{
+      p: 1,
+      backgroundColor: '#1a1a1a',
+      borderRadius: 2,
+      border: '1px solid #333',
+      fontSize: 12,
+      maxHeight: '100%',
+      overflow: 'hidden'
+    }}>
       <Typography variant="h6" color="white" mb={1} fontSize={14}>
         🔮 Прогноз
       </Typography>
@@ -48,9 +56,9 @@ export const ForecastPanel: React.FC<ForecastPanelProps> = ({
           const normalizedProbability = entry.probability / maxProbability;
           return (
             <Box key={entry.type} sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 24 }}>
-              <Typography 
-                variant="caption" 
-                color="#ffd700" 
+              <Typography
+                variant="caption"
+                color="#ffd700"
                 fontWeight="bold"
                 sx={{ minWidth: '18px', fontSize: 12 }}
               >
@@ -74,7 +82,12 @@ export const ForecastPanel: React.FC<ForecastPanelProps> = ({
                 {entry.type}
               </Box>
               <Box sx={{ flex: 1, height: 6, background: '#222', borderRadius: 2, overflow: 'hidden', mx: 0.5 }}>
-                <Box sx={{ width: `${normalizedProbability * 100}%`, height: 1, background: '#ffd700', borderRadius: 2 }} />
+                <Box sx={{
+                  width: `${normalizedProbability * 100}%`,
+                  height: 1,
+                  background: '#ffd700',
+                  borderRadius: 2
+                }} />
               </Box>
               <Typography variant="caption" color="#ffd700" sx={{ minWidth: 32, textAlign: 'right', fontSize: 12 }}>
                 {probabilityPercent}%

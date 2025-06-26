@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Typography, Button, CircularProgress, Alert } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useSnackbar } from 'notistack';
@@ -33,10 +33,8 @@ export default function Home() {
   const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
   const [isCreateRoomOpen, setCreateRoomOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleCreateRoomSubmit = async (roomKey: string, password?: string) => {
-    setIsSubmitting(true);
     try {
       const res = await fetch('http://localhost:8080/api/rooms/auth', {
         method: 'POST',
@@ -57,10 +55,8 @@ export default function Home() {
       await refetch();
       router.push(`/room/${roomKey}`);
       enqueueSnackbar(`Комната "${roomKey}" успешно создана!`, { variant: 'success' });
-    } catch (error: any) {
-      enqueueSnackbar(error.message, { variant: 'error' });
-    } finally {
-      setIsSubmitting(false);
+    } catch (error: unknown) {
+      enqueueSnackbar(error instanceof Error ? error.message : 'Неизвестная ошибка', { variant: 'error' });
     }
   };
 
@@ -89,9 +85,8 @@ export default function Home() {
 
       <CreateRoomDialog
         open={isCreateRoomOpen}
-        onClose={() => setCreateRoomOpen(false)}
+        onCancel={() => setCreateRoomOpen(false)}
         onSubmit={handleCreateRoomSubmit}
-        isSubmitting={isSubmitting}
       />
     </Box>
   );

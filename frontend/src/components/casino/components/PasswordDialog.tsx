@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Button,
   Alert,
   Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
   Typography
 } from '@mui/material';
 import { Lock } from '@mui/icons-material';
@@ -23,12 +23,12 @@ interface PasswordDialogProps {
 }
 
 export const PasswordDialog: React.FC<PasswordDialogProps> = ({
-  open,
-  sessionKey,
-  error,
-  onSubmit,
-  onCancel
-}) => {
+                                                                open,
+                                                                sessionKey,
+                                                                error,
+                                                                onSubmit,
+                                                                onCancel
+                                                              }) => {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -50,8 +50,8 @@ export const PasswordDialog: React.FC<PasswordDialogProps> = ({
   };
 
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
@@ -62,9 +62,9 @@ export const PasswordDialog: React.FC<PasswordDialogProps> = ({
         }
       }}
     >
-      <DialogTitle sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
+      <DialogTitle sx={{
+        display: 'flex',
+        alignItems: 'center',
         gap: 1,
         pb: 1
       }}>
@@ -73,7 +73,7 @@ export const PasswordDialog: React.FC<PasswordDialogProps> = ({
           Вход в комнату
         </Typography>
       </DialogTitle>
-      
+
       <DialogContent>
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
@@ -102,16 +102,16 @@ export const PasswordDialog: React.FC<PasswordDialogProps> = ({
           />
         </form>
       </DialogContent>
-      
+
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button 
+        <Button
           onClick={handleClose}
           disabled={isSubmitting}
           color="inherit"
         >
           Отмена
         </Button>
-        <Button 
+        <Button
           onClick={handleSubmit}
           disabled={!password.trim() || isSubmitting}
           variant="contained"
