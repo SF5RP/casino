@@ -103,7 +103,14 @@ jobs:
           # Extract deployment package
           tar -xzf casino-backend-deploy.tar.gz
           cd casino-backend
-          
+
+          # Проверка наличия скрипта и прав
+          ls -la
+          ls -la deploy/scripts
+
+          # Дать права на исполнение (если нужно)
+          chmod +x deploy/scripts/update.sh
+
           # Run update script
           sudo ./deploy/scripts/update.sh
           
