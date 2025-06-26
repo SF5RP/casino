@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, master ]
     paths:
-      - 'go-backend/**'
+      - 'backend/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
     inputs:
@@ -41,23 +41,23 @@ jobs:
         path: |
           ~/.cache/go-build
           ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('go-backend/go.sum') }}
+        key: ${{ runner.os }}-go-${{ hashFiles('backend/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
           
     - name: Build application
-      working-directory: go-backend
+      working-directory: backend
       run: |
         go mod download
         go mod tidy
         CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ${{ env.BINARY_NAME }} ./cmd/server/main.go
         
     - name: Run tests
-      working-directory: go-backend
+      working-directory: backend
       run: go test ./...
       
     - name: Create deployment package
-      working-directory: go-backend
+      working-directory: backend
       run: |
         mkdir -p dist/casino-backend
         cp ${{ env.BINARY_NAME }} dist/casino-backend/
@@ -71,7 +71,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: casino-backend-deploy
-        path: go-backend/casino-backend-deploy.tar.gz
+        path: backend/casino-backend-deploy.tar.gz
         retention-days: 30
 
   deploy:

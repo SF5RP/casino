@@ -43,7 +43,7 @@ Next.js Frontend ←→ Go Backend ←→ PostgreSQL
 
 #### Go Backend
 ```bash
-cd go-backend
+cd backend
 go mod tidy
 ```
 
@@ -87,7 +87,7 @@ PORT=8080
 
 **Терминал 1 - Go Backend:**
 ```bash
-cd go-backend
+cd backend
 go run cmd/server/main.go
 ```
 
@@ -112,8 +112,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  go-backend:
-    build: ./go-backend
+  backend:
+    build: ./backend
     ports:
       - "8080:8080"
     environment:
@@ -186,7 +186,7 @@ wscat -c ws://localhost:8080/ws
 ### Логи
 ```bash
 # Go backend логи
-cd go-backend
+cd backend
 go run cmd/server/main.go 2>&1 | tee server.log
 
 # PostgreSQL логи

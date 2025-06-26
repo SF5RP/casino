@@ -118,7 +118,7 @@ ls -la ~/.ssh/
 ```
 
 ### Деплой не запускается
-- Проверьте, что изменения в папке `go-backend/`
+- Проверьте, что изменения в папке `backend/`
 - Убедитесь, что коммит в ветку `main`
 - Проверьте GitHub Actions во вкладке `Actions`
 
@@ -143,7 +143,7 @@ sudo systemctl status casino-backend
 
 Для детальной настройки смотрите:
 - `scripts/setup-github-secrets.md` - полная инструкция по настройке
-- `go-backend/DEPLOYMENT.md` - документация по развертыванию
+- `backend/DEPLOYMENT.md` - документация по развертыванию
 - `.github/workflows/` - конфигурация GitHub Actions
 
 ---

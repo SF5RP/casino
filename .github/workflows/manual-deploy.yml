@@ -55,12 +55,12 @@ jobs:
         path: |
           ~/.cache/go-build
           ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('go-backend/go.sum') }}
+        key: ${{ runner.os }}-go-${{ hashFiles('backend/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
           
     - name: Build application
-      working-directory: go-backend
+      working-directory: backend
       run: |
         go mod download
         go mod tidy
@@ -68,11 +68,11 @@ jobs:
         
     - name: Run tests
       if: ${{ !inputs.skip_tests }}
-      working-directory: go-backend
+      working-directory: backend
       run: go test ./...
       
     - name: Create deployment package
-      working-directory: go-backend
+      working-directory: backend
       run: |
         mkdir -p dist/casino-backend
         cp ${{ env.BINARY_NAME }} dist/casino-backend/

@@ -16,7 +16,7 @@
 
 ```bash
 # Перейти в папку Go backend
-cd go-backend
+cd backend
 
 # Собрать deployment пакет
 make deploy-prep

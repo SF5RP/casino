@@ -7,7 +7,7 @@
 ### 1. Подготовка на локальной машине
 
 ```bash
-cd go-backend
+cd backend
 ./deploy.sh
 ```
 
@@ -229,4 +229,4 @@ echo "casino hard nofile 65536" | sudo tee -a /etc/security/limits.conf
 
 **🚀 Casino Backend готов к работе на Linux сервере!**
 
-Подробная документация: `go-backend/DEPLOYMENT.md` 
+Подробная документация: `backend/DEPLOYMENT.md` 
