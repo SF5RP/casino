@@ -1,4 +1,4 @@
-name: Deploy Casino Backend
+name: Build and Deploy Casino Backend
 
 on:
   push:
@@ -18,12 +18,12 @@ on:
         - staging
 
 env:
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.22'
   BINARY_NAME: 'casino-server'
 
 jobs:
-  build:
-    name: Build Application
+  build-and-deploy:
+    name: Build and Deploy
     runs-on: ubuntu-latest
     
     steps:
@@ -45,96 +45,91 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
           
-    - name: Build application
+    - name: Build binary
       working-directory: backend
       run: |
         go mod download
         go mod tidy
-        CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ${{ env.BINARY_NAME }} ./cmd/server/main.go
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o ${{ env.BINARY_NAME }} ./cmd/server/main.go
         
     - name: Run tests
       working-directory: backend
       run: go test ./...
       
-    - name: Create deployment package
+    - name: Prepare deployment files
       working-directory: backend
       run: |
-        mkdir -p dist/casino-backend
-        cp ${{ env.BINARY_NAME }} dist/casino-backend/
-        cp -r deploy dist/casino-backend/
-        cp env.example dist/casino-backend/
-        cp README.md dist/casino-backend/
-        cp DEPLOYMENT.md dist/casino-backend/
-        tar -czf casino-backend-deploy.tar.gz -C dist casino-backend/
+        mkdir deploy_package
+        cp -v ${{ env.BINARY_NAME }} deploy_package/
+        cp -v env.example deploy_package/
+        cp -v DEPLOYMENT.md deploy_package/
+        cp -v README.md deploy_package/
         
-    - name: Upload deployment artifact
-      uses: actions/upload-artifact@v4
+    - name: Install SSH key
+      uses: shimataro/ssh-key-action@v2
       with:
-        name: casino-backend-deploy
-        path: backend/casino-backend-deploy.tar.gz
-        retention-days: 30
-
-  deploy:
-    name: Deploy to Server
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
-    
-    steps:
-    - name: Download deployment artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: casino-backend-deploy
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        known_hosts: 'just-a-placeholder'
         
-    - name: Setup SSH
+    - name: Deploy and restart service
       run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+        echo "🚀 Deploying to production environment..."
+        echo "📍 Server: ${{ secrets.SERVER_HOST }}"
+        echo "👤 User: ${{ secrets.SERVER_USER }}"
+        echo "🌿 Branch: ${{ github.ref_name }}"
+        echo "📝 Commit: ${{ github.sha }}"
         
-    - name: Deploy to server
-      run: |
-        # Copy deployment package to server
-        scp -i ~/.ssh/id_rsa casino-backend-deploy.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/
-        
+        # Copy files with temporary names
+        scp -o StrictHostKeyChecking=no -P ${{ secrets.SSH_PORT || '22' }} \
+            backend/deploy_package/${{ env.BINARY_NAME }} \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/casino-backend/${{ env.BINARY_NAME }}.tmp
+        scp -o StrictHostKeyChecking=no -P ${{ secrets.SSH_PORT || '22' }} \
+            backend/deploy_package/env.example \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/casino-backend/env.example.tmp
+        scp -o StrictHostKeyChecking=no -P ${{ secrets.SSH_PORT || '22' }} \
+            backend/deploy_package/DEPLOYMENT.md \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/casino-backend/DEPLOYMENT.md.tmp
+        scp -o StrictHostKeyChecking=no -P ${{ secrets.SSH_PORT || '22' }} \
+            backend/deploy_package/README.md \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/casino-backend/README.md.tmp
+            
         # Execute deployment commands on server
-        ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-          # Extract deployment package
-          tar -xzf casino-backend-deploy.tar.gz
-          cd casino-backend
+        ssh -o StrictHostKeyChecking=no -p ${{ secrets.SSH_PORT || '22' }} \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+        set -e
 
-          # Проверка наличия скрипта и прав
-          ls -la
-          ls -la deploy/scripts
+        echo "🔄 Stopping casino-backend service..."
+        sudo systemctl stop casino-backend.service || true
 
-          # Дать права на исполнение (если нужно)
-          chmod +x deploy/scripts/update.sh
+        echo "📦 Replacing files atomically..."
+        mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/${{ env.BINARY_NAME }}.tmp /home/${{ secrets.SERVER_USER }}/casino-backend/${{ env.BINARY_NAME }}
+        mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/env.example.tmp /home/${{ secrets.SERVER_USER }}/casino-backend/env.example
+        mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/DEPLOYMENT.md.tmp /home/${{ secrets.SERVER_USER }}/casino-backend/DEPLOYMENT.md
+        mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/README.md.tmp /home/${{ secrets.SERVER_USER }}/casino-backend/README.md
 
-          # Run update script
-          sudo ./deploy/scripts/update.sh
-          
-          # Verify deployment
-          sleep 5
-          if sudo systemctl is-active --quiet casino-backend; then
-            echo "✅ Deployment successful!"
-            sudo systemctl status casino-backend --no-pager
-          else
-            echo "❌ Deployment failed!"
-            sudo journalctl -u casino-backend -n 20 --no-pager
-            exit 1
-          fi
-          
-          # Cleanup
-          rm -f ~/casino-backend-deploy.tar.gz
+        echo "🔐 Setting permissions..."
+        chmod +x /home/${{ secrets.SERVER_USER }}/casino-backend/${{ env.BINARY_NAME }}
+
+        echo "🚀 Starting casino-backend service..."
+        sudo systemctl start casino-backend.service
+
+        echo "✅ Verifying deployment..."
+        sleep 5
+        if sudo systemctl is-active --quiet casino-backend; then
+          echo "✅ Deployment successful!"
+          sudo systemctl status casino-backend --no-pager
+        else
+          echo "❌ Deployment failed!"
+          sudo journalctl -u casino-backend -n 20 --no-pager
+          exit 1
+        fi
         EOF
         
     - name: Health check
       run: |
-        # Wait a bit for service to fully start
+        echo "🏥 Running health check..."
         sleep 10
         
-        # Health check
         if curl -f http://${{ secrets.SERVER_HOST }}:8080/health; then
           echo "✅ Health check passed!"
         else
@@ -142,11 +137,21 @@ jobs:
           exit 1
         fi
         
-    - name: Notify deployment status
+    - name: Deployment summary
       if: always()
       run: |
         if [ "${{ job.status }}" == "success" ]; then
           echo "🚀 Deployment completed successfully!"
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
         else
           echo "💥 Deployment failed!"
+          echo "## 💥 Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ❌ Failed" >> $GITHUB_STEP_SUMMARY
         fi 
