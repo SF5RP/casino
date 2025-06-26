@@ -14,6 +14,7 @@ interface RouletteBoardProps {
   setHistory: React.Dispatch<React.SetStateAction<RouletteNumber[]>>;
   setActiveLabel: (label: string) => void;
   setActiveGroup: (group: number[]) => void;
+  setHoveredNumber?: (num: RouletteNumber | null) => void;
 }
 
 // Счетчик рендеров для отладки
@@ -28,6 +29,7 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
   setHistory,
   setActiveLabel,
   setActiveGroup,
+  setHoveredNumber,
 }) => {
   renderCount++;
   if (DEBUG_LOGS) {
@@ -92,9 +94,11 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
         isHighlighted={isHighlighted}
         onCellClick={handleCellClick}
         history={history}
+        onMouseEnter={setHoveredNumber ? () => setHoveredNumber(num) : undefined}
+        onMouseLeave={setHoveredNumber ? () => setHoveredNumber(null) : undefined}
       />
     );
-  }, [ageMap, activeLabel, activeGroup, handleCellClick, history]);
+  }, [ageMap, activeLabel, activeGroup, handleCellClick, history, setHoveredNumber]);
 
   // Мемоизируем создание сетки чисел
   const numberGrid = useMemo(() => {

@@ -7,6 +7,7 @@ import { SectorAnalysis } from './SectorAnalysis';
 import { RowAnalysis } from './RowAnalysis';
 import { EvenOddAnalysis } from './EvenOddAnalysis';
 import type { RouletteNumber } from '../../types/rouletteTypes';
+import { RouletteStatsCharts } from '../rouletteStatsCharts';
 
 interface StatsPanelProps {
   showStats: boolean;
@@ -87,6 +88,12 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
           Всего ставок: {history.length}
         </Typography>
       </Box>
+
+      {history.length > 0 && (
+        <Box mb={3}>
+          <RouletteStatsCharts history={history} />
+        </Box>
+      )}
 
       <Box mt={3}>
         <Typography variant="subtitle2" color="white" mb={2}>

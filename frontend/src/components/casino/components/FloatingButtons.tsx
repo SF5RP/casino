@@ -93,28 +93,6 @@ export const FloatingButtons: React.FC<FloatingButtonsProps> = ({
         ⚙️
       </Button>
       
-      {onCreateRoom && (
-        <Button
-          onClick={onCreateRoom}
-          sx={{
-            minWidth: 'auto',
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            backgroundColor: '#4caf50',
-            color: 'white',
-            fontSize: '24px',
-            alignSelf: 'flex-end',
-            '&:hover': {
-              backgroundColor: '#45a049',
-            },
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-          }}
-        >
-          ➕
-        </Button>
-      )}
-      
       {/* Отладка: hasHistory={hasHistory ? 'true' : 'false'}, onDeleteLast={onDeleteLast ? 'exists' : 'missing'} */}
       {hasHistory && onDeleteLast && (
         <Button

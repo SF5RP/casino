@@ -34,38 +34,32 @@ export const ForecastPanel: React.FC<ForecastPanelProps> = ({
   const maxProbability = forecast[0]?.probability || 0;
 
   return (
-    <Box sx={{ p: 2, backgroundColor: '#1a1a1a', borderRadius: 2, border: '1px solid #333' }}>
-      <Typography variant="h6" color="white" mb={2}>
-        🔮 Прогноз следующих чисел
+    <Box sx={{ p: 1, backgroundColor: '#1a1a1a', borderRadius: 2, border: '1px solid #333', fontSize: 12, maxHeight: '100%', overflow: 'hidden' }}>
+      <Typography variant="h6" color="white" mb={1} fontSize={14}>
+        🔮 Прогноз
       </Typography>
-      
-      <Typography variant="caption" color="#999" mb={2} display="block">
-        Основан на анализе {history.length} ставок
+      <Typography variant="caption" color="#999" mb={1} display="block" fontSize={11}>
+        На основе {history.length} ставок
       </Typography>
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: '100%', overflow: 'hidden' }}>
         {forecast.map((entry, index) => {
           const numberColor = getNumberColor(entry.type as RouletteNumber);
           const probabilityPercent = (entry.probability * 100).toFixed(1);
           const normalizedProbability = entry.probability / maxProbability;
-
           return (
-            <Box key={entry.type} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {/* Позиция */}
+            <Box key={entry.type} sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 24 }}>
               <Typography 
                 variant="caption" 
                 color="#ffd700" 
                 fontWeight="bold"
-                sx={{ minWidth: '20px' }}
+                sx={{ minWidth: '18px', fontSize: 12 }}
               >
-                #{index + 1}
+                {index + 1}
               </Typography>
-
-              {/* Номер */}
               <Box
                 sx={{
-                  width: 28,
-                  height: 28,
+                  width: 22,
+                  height: 22,
                   backgroundColor: numberColor,
                   color: 'white',
                   borderRadius: 1,
@@ -74,44 +68,21 @@ export const ForecastPanel: React.FC<ForecastPanelProps> = ({
                   justifyContent: 'center',
                   fontWeight: 'bold',
                   fontSize: '12px',
-                  minWidth: '28px',
+                  minWidth: '22px',
                 }}
               >
                 {entry.type}
               </Box>
-
-              {/* Прогресс бар */}
-              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <LinearProgress
-                  variant="determinate"
-                  value={normalizedProbability * 100}
-                  sx={{
-                    flex: 1,
-                    height: 6,
-                    borderRadius: 3,
-                    backgroundColor: '#333',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: index < 3 ? '#22c55e' : index < 6 ? '#eab308' : '#6b7280',
-                      borderRadius: 3,
-                    },
-                  }}
-                />
-                <Typography 
-                  variant="caption" 
-                  color="white" 
-                  sx={{ minWidth: '40px', textAlign: 'right' }}
-                >
-                  {probabilityPercent}%
-                </Typography>
+              <Box sx={{ flex: 1, height: 6, background: '#222', borderRadius: 2, overflow: 'hidden', mx: 0.5 }}>
+                <Box sx={{ width: `${normalizedProbability * 100}%`, height: 1, background: '#ffd700', borderRadius: 2 }} />
               </Box>
+              <Typography variant="caption" color="#ffd700" sx={{ minWidth: 32, textAlign: 'right', fontSize: 12 }}>
+                {probabilityPercent}%
+              </Typography>
             </Box>
           );
         })}
       </Box>
-
-      <Typography variant="caption" color="#666" mt={2} display="block">
-        ⚠️ Прогноз носит развлекательный характер
-      </Typography>
     </Box>
   );
 }; 

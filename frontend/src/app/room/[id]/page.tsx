@@ -8,7 +8,7 @@ import { useConnectionNotifications } from '@/components/casino/hooks/useConnect
 import { useSnackbar } from 'notistack';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import { useRouletteSettings } from '@/components/casino/hooks/useRouletteSettings';
-import { calculateAgeMap } from '@/components/casino/utils/rouletteUtils';
+import { calculateAgeMap, getNumberColor, getContrastText } from '@/components/casino/utils/rouletteUtils';
 import { RouletteBoard } from '@/components/casino/components/rouletteBoard/RouletteBoard';
 import { HistoryPanel } from '@/components/casino/components/HistoryPanel';
 import { StatsPanel } from '@/components/casino/components/statsPanel/StatsPanel';
@@ -21,6 +21,7 @@ import { ConnectionStatus } from '@/components/casino/components/ConnectionStatu
 import { PasswordEntryForm } from '@/components/casino/components/PasswordEntryForm';
 import { CreateRoomDialog } from '@/components/casino/components/CreateRoomDialog';
 import type { SortBy, RouletteNumber } from '@/components/casino/types/rouletteTypes';
+import { RouletteTrendsChart } from '@/components/casino/components/rouletteTrendsChart';
 
 const RoomPageContent: React.FC = () => {
   const params = useParams();
@@ -72,6 +73,10 @@ const RoomPageContent: React.FC = () => {
   const [showStats, setShowStats] = useState(false);
   const [showDetailedStats, setShowDetailedStats] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>('number');
+  const [chartHistoryLength, setChartHistoryLength] = useState(30);
+  const [isHistoryWide, setIsHistoryWide] = useState(false);
+  const [hoveredNumber, setHoveredNumber] = useState<RouletteNumber | null>(null);
+  const [lastHoveredNumber, setLastHoveredNumber] = useState<RouletteNumber | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -84,8 +89,7 @@ const RoomPageContent: React.FC = () => {
 
   const isWideScreen = windowWidth > 1700;
   const shouldShowSidebar = isWideScreen && showStats;
-  const effectiveWidth = shouldShowSidebar ? windowWidth - 350 : windowWidth;
-  const { historyRows, itemsPerRow, maxVisibleItems, updateHistoryRows } = useRouletteSettings(effectiveWidth);
+  const { historyRows, updateHistoryRows } = useRouletteSettings();
   const ageMap = useMemo(() => calculateAgeMap(history), [history]);
 
   const resetAll = useCallback(() => {
@@ -113,6 +117,11 @@ const RoomPageContent: React.FC = () => {
   const handleSetActiveGroup = useCallback((group: number[]) => {
     setActiveGroup(group);
   }, []);
+
+  const handleSetHoveredNumber = (num: RouletteNumber | null) => {
+    setHoveredNumber(num);
+    if (num !== null) setLastHoveredNumber(num);
+  };
 
   const authenticate = async (password?: string) => {
     if (!key) return;
@@ -147,7 +156,6 @@ const RoomPageContent: React.FC = () => {
 
   const handlePasswordCancel = useCallback(() => {
     setShowPasswordDialog(false);
-    // Просто переходим на новую комнату, без манипуляций с URL
     router.replace(`/room/${Math.random().toString(36).substring(2, 15)}`);
   }, [router]);
 
@@ -216,9 +224,6 @@ const RoomPageContent: React.FC = () => {
             width: 350,
             backgroundColor: '#1a1a1a',
             borderRight: '1px solid #333',
-            position: 'fixed',
-            left: 0,
-            top: 0,
             height: '100vh',
             overflowY: 'auto',
             zIndex: 1000,
@@ -231,12 +236,7 @@ const RoomPageContent: React.FC = () => {
             </Typography>
             <Box
               onClick={() => setShowStats(false)}
-              sx={{
-                cursor: 'pointer',
-                color: 'white',
-                fontSize: '20px',
-                '&:hover': { color: '#ccc' }
-              }}
+              sx={{ cursor: 'pointer', color: 'white', fontSize: '20px', '&:hover': { color: '#ccc' } }}
             >
               ×
             </Box>
@@ -250,35 +250,8 @@ const RoomPageContent: React.FC = () => {
           />
         </Box>
       )}
-      <Box sx={{ flex: 1 }}>
-        {showSettings && (
-          <Box
-            sx={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100vw',
-              height: '100vh',
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 999,
-            }}
-            onClick={() => setShowSettings(false)}
-          />
-        )}
-        {showStats && !isWideScreen && (
-          <Box
-            sx={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100vw',
-              height: '100vh',
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 999,
-            }}
-            onClick={() => setShowStats(false)}
-          />
-        )}
+      
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', px: 2, py: 4 }}>
         {!isWideScreen && (
           <StatsPanel
             showStats={showStats}
@@ -288,95 +261,182 @@ const RoomPageContent: React.FC = () => {
             isEmbedded={false}
           />
         )}
-        <SettingsPanel
+
+        <HistoryPanel
+          history={history}
+          setHistory={setHistory}
+          showFullHistory={showFullHistory}
+          historyRows={historyRows}
+          isWide={isHistoryWide}
+          setHoveredNumber={handleSetHoveredNumber}
+        />
+
+        <RouletteBoard
+          ageMap={ageMap}
+          activeLabel={activeLabel}
+          activeGroup={activeGroup}
+          history={history}
+          setHistory={handleSetHistory}
+          setActiveLabel={handleSetActiveLabel}
+          setActiveGroup={handleSetActiveGroup}
+          setHoveredNumber={handleSetHoveredNumber}
+        />
+
+        <Box display="flex" gap={2} mt={2} mb={2} flexWrap="wrap" justifyContent="center" width="100%">
+          <Box flex={1} minWidth={300}>
+            <GameInfo history={history as number[]} ageMap={ageMap} />
+          </Box>
+          
+          <Box flex={2} minWidth={600}>
+            <RouletteTrendsChart history={history as number[]} chartHistoryLength={chartHistoryLength} />
+          </Box>
+        </Box>
+
+        <Box mt={2} mb={2} p={2} bgcolor="#181818" borderRadius={2} minHeight={48} width="100%" maxWidth={600}>
+          {hoveredNumber === null && lastHoveredNumber === null ? (
+            <Typography color="#888" fontSize={14}>Наведи на число в истории или на столе</Typography>
+          ) : (
+            (() => {
+              const num = hoveredNumber ?? lastHoveredNumber;
+              const numStr = String(num);
+              const occurrences = history.filter(h => String(h) === numStr).length;
+              const lastIndex = [...history].reverse().findIndex(h => String(h) === numStr);
+              const percentage = history.length > 0 ? ((occurrences / history.length) * 100) : 0;
+              let avgInterval = '';
+              if (occurrences > 1) {
+                const indexes = history.reduce((arr, h, idx) => (String(h) === numStr ? [...arr, idx] : arr), [] as number[]);
+                const intervals = indexes.slice(1).map((v, i) => v - indexes[i]);
+                avgInterval = (intervals.reduce((a, b) => a + b, 0) / intervals.length).toFixed(1);
+              }
+              let maxStreak = 0, curStreak = 0;
+              for (let i = 0; i < history.length; i++) {
+                if (String(history[i]) === numStr) {
+                  curStreak++;
+                  if (curStreak > maxStreak) maxStreak = curStreak;
+                } else {
+                  curStreak = 0;
+                }
+              }
+              const sinceLast = lastIndex === -1 ? '' : `${lastIndex}`;
+              return (
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Box sx={{ width: 32, height: 32, borderRadius: 1, background: getNumberColor(num!), color: getContrastText(getNumberColor(num!)), fontWeight: 'bold', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{num}</Box>
+                  <Box fontSize={14} color="#eee">
+                    <div>Выпадений: <b>{occurrences}</b></div>
+                    <div>Процент: <b>{percentage.toFixed(1)}%</b></div>
+                    <div>Средний интервал: <b>{avgInterval || '-'}</b></div>
+                    <div>Макс. серия: <b>{maxStreak}</b></div>
+                    <div>С последнего: <b>{sinceLast}</b></div>
+                  </Box>
+                </Box>
+              );
+            })()
+          )}
+        </Box>
+      </Box>
+
+      <Box
+        sx={{
+          width: 300,
+          minWidth: 0,
+          display: { xs: 'none', md: 'block' },
+          backgroundColor: 'transparent',
+          pl: 2,
+          pt: 4,
+        }}
+      >
+        <ForecastPanel history={history} />
+        <Box mt={2} p={1} bgcolor="#181818" borderRadius={2}>
+          <Box display="flex" fontSize={12} color="#aaa" fontWeight={500} mb={0.5}>
+            <Box width={28}>№</Box>
+            <Box width={18}></Box>
+            <Box width={32} textAlign="right">Кол-во</Box>
+            <Box width={36} textAlign="right">%</Box>
+            <Box width={36} textAlign="right">Интервал</Box>
+            <Box width={36} textAlign="right">Макс.серия</Box>
+            <Box flex={1} textAlign="right">С послед.</Box>
+          </Box>
+          {[0, ...Array.from({ length: 36 }, (_, i) => i + 1)].map(num => {
+            const numStr = String(num);
+            const occurrences = history.filter(h => String(h) === numStr).length;
+            const lastIndex = [...history].reverse().findIndex(h => String(h) === numStr);
+            const lastOccurrence = lastIndex === -1 ? '' : `${lastIndex}`;
+            const percentage = history.length > 0 ? ((occurrences / history.length) * 100) : 0;
+            const color = getNumberColor(num);
+            let avgInterval = '';
+            if (occurrences > 1) {
+              const indexes = history.reduce((arr, h, idx) => (String(h) === numStr ? [...arr, idx] : arr), [] as number[]);
+              const intervals = indexes.slice(1).map((v, i) => v - indexes[i]);
+              avgInterval = (intervals.reduce((a, b) => a + b, 0) / intervals.length).toFixed(1);
+            }
+            let maxStreak = 0, curStreak = 0;
+            for (let i = 0; i < history.length; i++) {
+              if (String(history[i]) === numStr) {
+                curStreak++;
+                if (curStreak > maxStreak) maxStreak = curStreak;
+              } else {
+                curStreak = 0;
+              }
+            }
+            const sinceLast = lastIndex === -1 ? '' : `${lastIndex}`;
+            return (
+              <Box key={num} display="flex" alignItems="center" fontSize={12} color="#eee" py={0.2}>
+                <Box width={28}>{num}</Box>
+                <Box width={18} display="flex" alignItems="center" justifyContent="center">
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', background: color, border: '1px solid #333' }} />
+                </Box>
+                <Box width={32} textAlign="right">{occurrences}</Box>
+                <Box width={36} textAlign="right">{percentage.toFixed(1)}</Box>
+                <Box width={36} textAlign="right">{avgInterval}</Box>
+                <Box width={36} textAlign="right">{maxStreak}</Box>
+                <Box flex={1} textAlign="right" color="#888">{sinceLast}</Box>
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+
+      <FloatingButtons
+        showStats={showStats}
+        setShowStats={setShowStats}
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        onDeleteLast={deleteLast}
+        hasHistory={history.length > 0}
+        onCreateRoom={handleCreateRoom}
+      />
+      
+      <CreateRoomDialog
+        open={showCreateRoomDialog}
+        onSubmit={handleCreateRoomSubmit}
+        onCancel={handleCreateRoomCancel}
+      />
+      
+              <SettingsPanel
           showSettings={showSettings}
           setShowSettings={setShowSettings}
           setShowStats={setShowStats}
           historyRows={historyRows}
           updateHistoryRows={updateHistoryRows}
-          itemsPerRow={itemsPerRow}
-          maxVisibleItems={maxVisibleItems}
           historyLength={history.length}
           showFullHistory={showFullHistory}
           setShowFullHistory={setShowFullHistory}
           onShare={handleShare}
           onReset={resetAll}
           onDeleteLast={deleteLast}
+          chartHistoryLength={chartHistoryLength}
+          setChartHistoryLength={setChartHistoryLength}
+          isHistoryWide={isHistoryWide}
+          setIsHistoryWide={setIsHistoryWide}
         />
-        <DetailedStatsModal
-          open={showDetailedStats}
-          onClose={() => setShowDetailedStats(false)}
-          history={history}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-        />
-        <ConnectionStatus
-          isConnected={isConnected}
-          isReconnecting={isReconnecting}
-          reconnectAttempts={reconnectAttempts}
-          onReconnect={forceReconnect}
-        />
-        <Box p={4}>
-          <HistoryPanel
-            history={history}
-            setHistory={setHistory}
-            showFullHistory={showFullHistory}
-            maxVisibleItems={maxVisibleItems}
-          />
-          <Box position="relative" display="flex" justifyContent="center" alignItems="flex-start">
-            <Box display="flex" flexDirection="column" alignItems="center">
-              <RouletteBoard
-                ageMap={ageMap}
-                activeLabel={activeLabel}
-                activeGroup={activeGroup}
-                history={history}
-                setHistory={handleSetHistory}
-                setActiveLabel={handleSetActiveLabel}
-                setActiveGroup={handleSetActiveGroup}
-              />
-              <GameInfo history={history} ageMap={ageMap} />
-            </Box>
-            <Box
-              position="absolute"
-              right={0}
-              top={0}
-              width="300px"
-              sx={{
-                '@media (max-width: 1200px)': {
-                  display: 'none'
-                }
-              }}
-            >
-              <ForecastPanel history={history} maxPredictions={8} />
-            </Box>
-          </Box>
-          <Box
-            sx={{
-              display: 'none',
-              '@media (max-width: 1200px)': {
-                display: 'block',
-                mt: 4
-              }
-            }}
-          >
-            <ForecastPanel history={history} maxPredictions={8} />
-          </Box>
-        </Box>
-        <FloatingButtons
-          showStats={showStats}
-          setShowStats={setShowStats}
-          showSettings={showSettings}
-          setShowSettings={setShowSettings}
-          onDeleteLast={deleteLast}
-          hasHistory={history.length > 0}
-          onCreateRoom={handleCreateRoom}
-        />
-        <CreateRoomDialog
-          open={showCreateRoomDialog}
-          onSubmit={handleCreateRoomSubmit}
-          onCancel={handleCreateRoomCancel}
-        />
-      </Box>
+      
+      <DetailedStatsModal
+        open={showDetailedStats}
+        onClose={() => setShowDetailedStats(false)}
+        history={history}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+      />
     </Box>
   );
 };

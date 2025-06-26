@@ -11,6 +11,8 @@ interface RouletteCellProps {
   isHighlighted: boolean;
   onCellClick: (num: RouletteNumber) => void;
   history: RouletteNumber[];
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 export const RouletteCell: React.FC<RouletteCellProps> = ({
@@ -20,6 +22,8 @@ export const RouletteCell: React.FC<RouletteCellProps> = ({
   isHighlighted,
   onCellClick,
   history,
+  onMouseEnter,
+  onMouseLeave,
 }: RouletteCellProps) => {
   const [showDetailedTooltip, setShowDetailedTooltip] = useState(false);
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -90,79 +94,60 @@ export const RouletteCell: React.FC<RouletteCellProps> = ({
   };
 
   return (
-    <Tooltip 
-      title={showDetailedTooltip ? <CellTooltip num={num} count={count} history={history} /> : ''}
-      arrow={showDetailedTooltip}
-      open={showDetailedTooltip}
-      enterDelay={0}
-      leaveDelay={200}
-      disableHoverListener={true}
-      componentsProps={{
-        tooltip: {
-          sx: {
-            maxWidth: 350,
-            backgroundColor: 'transparent',
-            padding: 0,
-          }
-        }
+    <Box
+      onClick={() => onCellClick(num)}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      sx={{
+        ...cellStyles,
+        borderRadius: '4px',
+        width: 'var(--cell-size, 44px)',
+        height: isZeroCell ? 'var(--zeros-height, 66px)' : 'var(--cell-size, 44px)',
+        minWidth: 'var(--cell-size, 44px)',
+        minHeight: isZeroCell ? 'var(--zeros-height, 66px)' : 'var(--cell-size, 44px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '2px',
+        transition: 'transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease',
+        cursor: 'pointer',
+        userSelect: 'none',
+        fontWeight: isRecent ? 'bold' : 'normal',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+        '&:hover': {
+          transform: 'scale(1.05)',
+          zIndex: 10,
+          filter: 'brightness(1.1)',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
+        },
       }}
     >
-      <Box
-        onClick={() => onCellClick(num)}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        sx={{
-          ...cellStyles,
-          borderRadius: '4px',
-          width: 'var(--cell-size, 44px)',
-          height: isZeroCell ? 'var(--zeros-height, 66px)' : 'var(--cell-size, 44px)',
-          minWidth: 'var(--cell-size, 44px)',
-          minHeight: isZeroCell ? 'var(--zeros-height, 66px)' : 'var(--cell-size, 44px)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '2px',
-          // Оптимизируем переходы - только для конкретных свойств
-          transition: 'transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease',
-          cursor: 'pointer',
-          userSelect: 'none',
-          fontWeight: isRecent ? 'bold' : 'normal',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-          '&:hover': {
-            transform: 'scale(1.05)',
-            zIndex: 10,
-            filter: 'brightness(1.1)',
-            boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
-          },
+      {/* Номер */}
+      <Box 
+        sx={{ 
+          fontWeight: 700, 
+          fontSize: 'calc(var(--cell-size, 44px) * 0.4)',
+          lineHeight: 0.9,
+          minFontSize: '12px',
+          textShadow: '1px 1px 2px rgba(0,0,0,0.7)',
         }}
       >
-        {/* Номер */}
-        <Box 
-          sx={{ 
-            fontWeight: 700, 
-            fontSize: 'calc(var(--cell-size, 44px) * 0.4)',
-            lineHeight: 0.9,
-            minFontSize: '12px',
-            textShadow: '1px 1px 2px rgba(0,0,0,0.7)',
-          }}
-        >
-          {num}
-        </Box>
-        
-        {/* Счетчик */}
-        <Box 
-          sx={{ 
-            fontSize: 'calc(var(--cell-size, 44px) * 0.24)',
-            lineHeight: 0.9,
-            minFontSize: '7px',
-            opacity: 0.9,
-            textShadow: '1px 1px 2px rgba(0,0,0,0.7)',
-          }}
-        >
-          {typeof count === 'number' && count === history.length ? '-' : count}
-        </Box>
+        {num}
       </Box>
-    </Tooltip>
+      
+      {/* Счетчик */}
+      <Box 
+        sx={{ 
+          fontSize: 'calc(var(--cell-size, 44px) * 0.24)',
+          lineHeight: 0.9,
+          minFontSize: '7px',
+          opacity: 0.9,
+          textShadow: '1px 1px 2px rgba(0,0,0,0.7)',
+        }}
+      >
+        {typeof count === 'number' && count === history.length ? '-' : count}
+      </Box>
+    </Box>
   );
 }; 

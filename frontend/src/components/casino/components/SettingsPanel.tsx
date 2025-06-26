@@ -1,5 +1,16 @@
 import React from 'react';
-import { Box, Button, TextField, Typography } from '@mui/material';
+import {
+  Box,
+  Typography,
+  FormControl,
+  FormLabel,
+  Slider,
+  FormGroup,
+  FormControlLabel,
+  Switch,
+  Button,
+  Divider,
+} from '@mui/material';
 
 interface SettingsPanelProps {
   showSettings: boolean;
@@ -7,14 +18,16 @@ interface SettingsPanelProps {
   setShowStats: (show: boolean) => void;
   historyRows: number;
   updateHistoryRows: (rows: number) => void;
-  itemsPerRow: number;
-  maxVisibleItems: number;
   historyLength: number;
   showFullHistory: boolean;
   setShowFullHistory: (show: boolean) => void;
   onShare: () => void;
   onReset: () => void;
-  onDeleteLast?: () => void;
+  onDeleteLast: () => void;
+  chartHistoryLength: number;
+  setChartHistoryLength: (length: number) => void;
+  isHistoryWide: boolean;
+  setIsHistoryWide: (wide: boolean) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -23,181 +36,234 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setShowStats,
   historyRows,
   updateHistoryRows,
-  itemsPerRow,
-  maxVisibleItems,
   historyLength,
   showFullHistory,
   setShowFullHistory,
   onShare,
   onReset,
   onDeleteLast,
-}) => (
-  <Box 
-    sx={{
-      position: 'fixed',
-      top: 0,
-      right: showSettings ? 0 : '-400px',
-      width: '300px',
-      height: '100vh',
-      backgroundColor: '#1a1a1a',
-      borderLeft: '1px solid #333',
-      padding: 3,
-      transition: 'right 0.3s ease',
-      zIndex: 1000,
-      overflowY: 'auto',
-    }}
-  >
-    <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-      <Typography variant="h6" color="white">Настройки</Typography>
-      <Button 
+  chartHistoryLength,
+  setChartHistoryLength,
+  isHistoryWide,
+  setIsHistoryWide,
+}) => {
+  if (!showSettings) return null;
+
+  return (
+    <>
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 1999,
+        }}
         onClick={() => setShowSettings(false)}
-        sx={{ color: 'white', minWidth: 'auto', p: 1 }}
+      />
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          width: 340,
+          height: '100vh',
+          backgroundColor: '#1a1a1a',
+          borderLeft: '1px solid #333',
+          zIndex: 2000,
+          boxShadow: 4,
+          overflowY: 'auto',
+          p: 3,
+        }}
       >
-        ✕
-      </Button>
-    </Box>
-
-    <Box mb={3}>
-      <Typography variant="subtitle1" color="white" mb={2}>
-        История ставок
-      </Typography>
-      
-      <Box mb={2}>
-        <Typography variant="body2" color="#ccc" mb={1}>
-          Количество строк: {historyRows}
-        </Typography>
-        <TextField
-          type="number"
-          value={historyRows}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            const inputValue = e.target.value;
-            // Разрешаем пустое поле для редактирования
-            if (inputValue === '') {
-              return;
-            }
-            const numValue = parseInt(inputValue);
-            if (!isNaN(numValue)) {
-              const value = Math.max(1, Math.min(10, numValue));
-              updateHistoryRows(value);
-            }
-          }}
-          onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-            // При потере фокуса, если поле пустое, устанавливаем минимальное значение
-            const inputValue = e.target.value;
-            if (inputValue === '' || isNaN(parseInt(inputValue))) {
-              updateHistoryRows(1);
-            }
-          }}
-          inputProps={{ min: 1, max: 10 }}
-          size="small"
-          sx={{
-            '& .MuiOutlinedInput-root': {
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h6" color="white">
+            Настройки
+          </Typography>
+          <Box
+            onClick={() => setShowSettings(false)}
+            sx={{
+              cursor: 'pointer',
               color: 'white',
-              '& fieldset': { borderColor: '#555' },
-              '&:hover fieldset': { borderColor: '#777' },
-              '&.Mui-focused fieldset': { borderColor: '#1976d2' },
-            },
-            '& .MuiInputLabel-root': { color: '#ccc' },
-          }}
-        />
-      </Box>
+              fontSize: '24px',
+              '&:hover': { color: '#ccc' },
+              width: 32,
+              height: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            ×
+          </Box>
+        </Box>
 
-      <Box mb={2}>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setShowFullHistory(!showFullHistory)}
-          sx={{ 
-            color: 'white', 
-            borderColor: '#555',
-            '&:hover': { borderColor: '#777' },
-            mb: 1,
-            width: '100%'
-          }}
-        >
-          {showFullHistory ? 'Скрыть старую историю' : 'Показать всю историю'}
-        </Button>
-      </Box>
+        <Box sx={{ mb: 3 }}>
+          <FormControl fullWidth>
+            <FormLabel sx={{ color: 'white', mb: 1 }}>
+              История: {historyRows} строк из {historyLength} чисел
+            </FormLabel>
+            <Slider
+              value={historyRows}
+              onChange={(_, value) => updateHistoryRows(value as number)}
+              min={1}
+              max={10}
+              step={1}
+              marks
+              valueLabelDisplay="auto"
+              sx={{
+                color: '#2196f3',
+                '& .MuiSlider-thumb': {
+                  backgroundColor: '#2196f3',
+                },
+                '& .MuiSlider-track': {
+                  backgroundColor: '#2196f3',
+                },
+                '& .MuiSlider-rail': {
+                  backgroundColor: '#666',
+                },
+              }}
+            />
+          </FormControl>
+        </Box>
 
-      <Typography variant="caption" color="#999" mb={2} display="block">
-        Элементов на строку: {itemsPerRow}<br/>
-        Показывается: {Math.min(maxVisibleItems, historyLength)} из {historyLength}
-      </Typography>
-    </Box>
+        <Box sx={{ mb: 3 }}>
+          <FormControl fullWidth>
+            <FormLabel sx={{ color: 'white', mb: 1 }}>
+              График: последние {chartHistoryLength} чисел
+            </FormLabel>
+            <Slider
+              value={chartHistoryLength}
+              onChange={(_, value) => setChartHistoryLength(value as number)}
+              min={10}
+              max={100}
+              step={5}
+              marks={[
+                { value: 10, label: '10' },
+                { value: 30, label: '30' },
+                { value: 50, label: '50' },
+                { value: 100, label: '100' },
+              ]}
+              valueLabelDisplay="auto"
+              sx={{
+                color: '#4caf50',
+                '& .MuiSlider-thumb': {
+                  backgroundColor: '#4caf50',
+                },
+                '& .MuiSlider-track': {
+                  backgroundColor: '#4caf50',
+                },
+                '& .MuiSlider-rail': {
+                  backgroundColor: '#666',
+                },
+              }}
+            />
+          </FormControl>
+        </Box>
 
-    <Box mb={3}>
-      <Typography variant="subtitle1" color="white" mb={2}>
-        Действия
-      </Typography>
-      
-      <Box display="flex" flexDirection="column" gap={1}>
-        <Button
-          variant="outlined"
-          onClick={() => {
-            setShowStats(true);
-            setShowSettings(false);
-          }}
-          sx={{ 
-            color: 'white', 
-            borderColor: '#673ab7',
-            '&:hover': { borderColor: '#9c27b0' }
-          }}
-        >
-          📊 Статистика
-        </Button>
-        
-        <Button
-          variant="outlined"
-          onClick={() => {
-            window.open('/admin', '_blank');
-          }}
-          sx={{ 
-            color: 'white', 
-            borderColor: '#ff9800',
-            '&:hover': { borderColor: '#ffc107' }
-          }}
-        >
-          🔧 Админ-панель
-        </Button>
-        
-        <Button
-          variant="outlined"
-          onClick={onShare}
-          sx={{ 
-            color: 'white', 
-            borderColor: '#555',
-            '&:hover': { borderColor: '#777' }
-          }}
-        >
-          Поделиться
-        </Button>
-        
-        {onDeleteLast && historyLength > 0 && (
+        <FormGroup sx={{ mb: 3 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showFullHistory}
+                onChange={(e) => setShowFullHistory(e.target.checked)}
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': {
+                    color: '#2196f3',
+                  },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: '#2196f3',
+                  },
+                }}
+              />
+            }
+            label={<Typography color="white">Полная история</Typography>}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isHistoryWide}
+                onChange={(e) => setIsHistoryWide(e.target.checked)}
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': {
+                    color: '#ff9800',
+                  },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: '#ff9800',
+                  },
+                }}
+              />
+            }
+            label={<Typography color="white">Широкая история</Typography>}
+          />
+        </FormGroup>
+
+        <Divider sx={{ backgroundColor: '#333', mb: 3 }} />
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={onShare}
+            sx={{
+              color: '#2196f3',
+              borderColor: '#2196f3',
+              '&:hover': {
+                borderColor: '#1976d2',
+                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+              },
+            }}
+          >
+            Поделиться комнатой
+          </Button>
+
+          <Button
+            variant="outlined"
+            onClick={() => setShowStats(true)}
+            sx={{
+              color: '#4caf50',
+              borderColor: '#4caf50',
+              '&:hover': {
+                borderColor: '#388e3c',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+              },
+            }}
+          >
+            Показать статистику
+          </Button>
+
           <Button
             variant="outlined"
             onClick={onDeleteLast}
-            sx={{ 
-              color: '#ff5858', 
-              borderColor: '#ff5858',
-              '&:hover': { borderColor: '#ff3030' }
+            sx={{
+              color: '#ff9800',
+              borderColor: '#ff9800',
+              '&:hover': {
+                borderColor: '#f57c00',
+                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+              },
             }}
           >
-            🗑️ Удалить последнее
+            Удалить последнее
           </Button>
-        )}
-        
-        <Button
-          variant="outlined"
-          color="error"
-          onClick={onReset}
-          sx={{ 
-            borderColor: '#d32f2f',
-            '&:hover': { borderColor: '#f44336' }
-          }}
-        >
-          Сбросить всё
-        </Button>
+
+          <Button
+            variant="outlined"
+            onClick={onReset}
+            sx={{
+              color: '#f44336',
+              borderColor: '#f44336',
+              '&:hover': {
+                borderColor: '#d32f2f',
+                backgroundColor: 'rgba(244, 67, 54, 0.1)',
+              },
+            }}
+          >
+            Сбросить всё
+          </Button>
+        </Box>
       </Box>
-    </Box>
-  </Box>
-); 
+    </>
+  );
+}; 
