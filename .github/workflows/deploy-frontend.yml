@@ -183,7 +183,12 @@ jobs:
         set -e
         
         echo "🔄 Stopping frontend service..."
-        pm2 stop casino-frontend || true
+        if pm2 list | grep -q "casino-frontend"; then
+          pm2 stop casino-frontend
+          pm2 delete casino-frontend
+        else
+          echo "Process casino-frontend not found, skipping stop"
+        fi
         
         echo "📦 Extracting deployment package..."
         rm -rf casino-frontend-backup
