@@ -128,7 +128,7 @@ const RoomPageContent: React.FC = () => {
   const authenticate = async (password?: string) => {
     if (!key) return;
     try {
-      const res = await fetch('http://localhost:8080/api/rooms/auth', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/rooms/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, password: password || '' }),
@@ -159,7 +159,7 @@ const RoomPageContent: React.FC = () => {
   const handleCreateRoomSubmit = async (roomKey: string, password?: string) => {
     setIsAuthenticating(true);
     try {
-      const res = await fetch('http://localhost:8080/api/rooms/auth', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/rooms/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: roomKey, password: password || '' }),

@@ -31,6 +31,9 @@ NEXT_PUBLIC_WS_PROTOCOL=ws
 
 # API настройки
 NEXT_PUBLIC_API_URL=http://localhost:8080/api
+NEXT_PUBLIC_API_HOST=localhost
+NEXT_PUBLIC_API_PORT=8080
+NEXT_PUBLIC_API_PROTOCOL=http
 
 # Настройки приложения
 NEXT_PUBLIC_APP_ENV=development
@@ -109,6 +112,9 @@ pm2 restart casino-frontend
 | `NEXT_PUBLIC_WS_PROTOCOL` | Протокол WebSocket | `ws` |
 | `NEXT_PUBLIC_WS_HOST` | Хост WebSocket | `localhost` |
 | `NEXT_PUBLIC_WS_PORT` | Порт WebSocket | `8080` |
+| `NEXT_PUBLIC_API_PROTOCOL` | Протокол API | `http` |
+| `NEXT_PUBLIC_API_HOST` | Хост API | `localhost` |
+| `NEXT_PUBLIC_API_PORT` | Порт API | `8080` |
 | `NEXT_PUBLIC_APP_ENV` | Окружение | `development` |
 | `NEXT_PUBLIC_DEBUG` | Режим отладки | `false` |
 

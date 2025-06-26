@@ -15,7 +15,7 @@ interface Room {
 }
 
 async function fetchRooms(): Promise<Room[]> {
-  const res = await fetch('http://localhost:8080/api/roulette/sessions');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/roulette/sessions`);
   if (!res.ok) throw new Error('Ошибка загрузки комнат');
   const data = await res.json();
   // Если сервер возвращает { sessions: [...] }
@@ -36,7 +36,7 @@ export default function Home() {
 
   const handleCreateRoomSubmit = async (roomKey: string, password?: string) => {
     try {
-      const res = await fetch('http://localhost:8080/api/rooms/auth', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/rooms/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: roomKey, password: password || '' }),

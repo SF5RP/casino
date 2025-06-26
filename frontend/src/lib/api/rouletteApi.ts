@@ -1,4 +1,5 @@
 import type { RouletteNumber } from '@/components/casino/types/rouletteTypes';
+import { API_BASE_URL, apiRequest } from '@/config/api';
 
 // Типы для API ответов
 export interface RouletteSession {
@@ -15,11 +16,8 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-// Базовый URL для Go backend
-const BASE_URL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8080/api';
-
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${BASE_URL}${endpoint}`;
+  const url = `${API_BASE_URL}${endpoint}`;
 
   const config: RequestInit = {
     headers: {

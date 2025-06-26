@@ -71,7 +71,7 @@ function AdminDashboardPage() {
       setLoading(true);
 
       // Получаем данные с реального API
-      const response = await fetch('http://localhost:8080/api/admin/sessions');
+              const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/admin/sessions`);
       if (!response.ok) {
         throw new Error('Failed to fetch sessions');
       }
@@ -80,7 +80,7 @@ function AdminDashboardPage() {
       setSessions(sessions);
 
       // Получаем статистику
-      const statsResponse = await fetch('http://localhost:8080/api/admin/stats');
+              const statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/admin/stats`);
       if (statsResponse.ok) {
         const stats = await statsResponse.json();
         setStats(stats);
@@ -117,7 +117,7 @@ function AdminDashboardPage() {
     setSelectedSession(session);
 
     try {
-      const response = await fetch(`http://localhost:8080/api/admin/sessions/${session.key}/history`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/admin/sessions/${session.key}/history`);
       if (response.ok) {
         const history = await response.json();
         setSessionHistory(history);
