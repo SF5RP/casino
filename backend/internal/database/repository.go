@@ -130,6 +130,48 @@ func (r *RouletteRepository) GetSession(key string) (*models.RouletteSession, er
 	return &session, nil
 }
 
+// GetSessionHistorySince retrieves session history since a given version (position)
+func (r *RouletteRepository) GetSessionHistorySince(key string, version int) ([]models.RouletteNumber, error) {
+	// Сначала получаем ID сессии по ключу
+	var sessionID int
+	err := r.db.QueryRow(`SELECT id FROM roulette_sessions WHERE key = $1`, key).Scan(&sessionID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // Сессия не найдена, возвращаем nil, а не ошибку
+		}
+		return nil, fmt.Errorf("failed to get session ID for key '%s': %w", key, err)
+	}
+
+	// Теперь получаем историю с указанной позиции
+	query := `
+		SELECT number FROM roulette_numbers
+		WHERE session_id = $1 AND position >= $2
+		ORDER BY position ASC
+	`
+
+	rows, err := r.db.Query(query, sessionID, version)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session history since version %d: %w", version, err)
+	}
+	defer rows.Close()
+
+	var history []models.RouletteNumber
+	for rows.Next() {
+		var numberStr string
+		if err := rows.Scan(&numberStr); err != nil {
+			return nil, fmt.Errorf("failed to scan number: %w", err)
+		}
+
+		number, err := stringToNumber(numberStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse number string: %w", err)
+		}
+		history = append(history, number)
+	}
+
+	return history, nil
+}
+
 // AddNumberToSession adds a number to session history
 func (r *RouletteRepository) AddNumberToSession(key string, number models.RouletteNumber) (*models.RouletteSession, error) {
 	// Start transaction
@@ -187,6 +229,63 @@ func (r *RouletteRepository) AddNumberToSession(key string, number models.Roulet
 	}
 
 	// Reload session with updated history
+	return r.GetSession(key)
+}
+
+// RemoveNumberFromSession removes a number from the session history at a specific index
+func (r *RouletteRepository) RemoveNumberFromSession(key string, index int) (*models.RouletteSession, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Get session ID
+	var sessionID int
+	err = tx.QueryRow(`SELECT id FROM roulette_sessions WHERE key = $1`, key).Scan(&sessionID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("session not found")
+		}
+		return nil, fmt.Errorf("failed to get session ID: %w", err)
+	}
+
+	// Delete the number at the specified position
+	deleteQuery := `DELETE FROM roulette_numbers WHERE session_id = $1 AND position = $2`
+	res, err := tx.Exec(deleteQuery, sessionID, index)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete number at position %d: %w", index, err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to check affected rows: %w", err)
+	}
+	if rowsAffected == 0 {
+		return nil, fmt.Errorf("no number found at position %d to delete", index)
+	}
+
+	// Decrement the position of all subsequent numbers
+	updateQuery := `
+		UPDATE roulette_numbers
+		SET position = position - 1
+		WHERE session_id = $1 AND position > $2
+	`
+	_, err = tx.Exec(updateQuery, sessionID, index)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update positions after deletion: %w", err)
+	}
+
+	// Update session timestamp
+	_, err = tx.Exec(`UPDATE roulette_sessions SET updated_at = $1 WHERE id = $2`, time.Now(), sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update session timestamp: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	return r.GetSession(key)
 }
 

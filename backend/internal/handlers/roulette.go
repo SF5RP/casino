@@ -64,21 +64,30 @@ func (h *RouletteHandler) AuthenticateRoom(w http.ResponseWriter, r *http.Reques
 
 	session, err := h.repo.GetSession(req.Key)
 	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		http.Error(w, "Internal server error while getting session", http.StatusInternalServerError)
+		log.Printf("Error getting session %s: %v", req.Key, err)
 		return
 	}
 
+	// Если сессии не существует, создаем ее
 	if session == nil {
-		// Сессия не найдена, создаем новую
-		if _, err := h.repo.CreateSessionWithPassword(req.Key, req.Password); err != nil {
+		log.Printf("Session %s not found, creating new one.", req.Key)
+		session, err = h.repo.CreateSessionWithPassword(req.Key, req.Password)
+		if err != nil {
 			http.Error(w, "Failed to create session", http.StatusInternalServerError)
+			log.Printf("Error creating session %s: %v", req.Key, err)
 			return
 		}
 	} else {
-		// Сессия существует, проверяем пароль
+		// Сессия существует, проверяем пароль, если он установлен
 		if session.Password != "" {
 			valid, err := h.repo.ValidateSessionPassword(req.Key, req.Password)
-			if err != nil || !valid {
+			if err != nil {
+				http.Error(w, "Internal server error during password validation", http.StatusInternalServerError)
+				log.Printf("Error validating password for session %s: %v", req.Key, err)
+				return
+			}
+			if !valid {
 				http.Error(w, "Invalid password", http.StatusUnauthorized)
 				return
 			}

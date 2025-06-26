@@ -239,4 +239,46 @@ func (r *MemoryRepository) getTotalNumbers() int {
 		total += len(session.History)
 	}
 	return total
+}
+
+// GetSessionHistorySince returns the history for a session since a given version
+func (r *MemoryRepository) GetSessionHistorySince(key string, version int) ([]models.RouletteNumber, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	session, exists := r.sessions[key]
+	if !exists {
+		return nil, nil // Or return an error, session not found
+	}
+
+	if version < 0 {
+		version = 0
+	}
+
+	if version >= len(session.History) {
+		return []models.RouletteNumber{}, nil
+	}
+
+	return session.History[version:], nil
+}
+
+// RemoveNumberFromSession removes a number from a session's history by index
+func (r *MemoryRepository) RemoveNumberFromSession(key string, index int) (*models.RouletteSession, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	session, exists := r.sessions[key]
+	if !exists {
+		return nil, fmt.Errorf("session with key '%s' not found", key)
+	}
+
+	if index < 0 || index >= len(session.History) {
+		return nil, fmt.Errorf("index %d out of bounds for history of length %d", index, len(session.History))
+	}
+
+	// Remove the element at the given index
+	session.History = append(session.History[:index], session.History[index+1:]...)
+	session.UpdatedAt = time.Now()
+
+	return session, nil
 } 

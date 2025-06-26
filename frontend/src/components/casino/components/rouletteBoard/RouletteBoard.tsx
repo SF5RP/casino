@@ -1,4 +1,4 @@
-import React, { startTransition, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Box } from '@mui/material';
 import { RouletteCell } from '../RouletteCell';
 import { BetButton } from '../betGroups/BetButton';
@@ -11,7 +11,8 @@ interface RouletteBoardProps {
   activeLabel: string;
   activeGroup: number[];
   history: RouletteNumber[];
-  setHistory: React.Dispatch<React.SetStateAction<RouletteNumber[]>>;
+  onCellClick: (num: RouletteNumber) => void;
+  setHistory?: React.Dispatch<React.SetStateAction<RouletteNumber[]>>;
   setActiveLabel: (label: string) => void;
   setActiveGroup: (group: number[]) => void;
   setHoveredNumber?: (num: RouletteNumber | null) => void;
@@ -26,7 +27,7 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
                                                        activeLabel,
                                                        activeGroup,
                                                        history,
-                                                       setHistory,
+                                                       onCellClick,
                                                        setActiveLabel,
                                                        setActiveGroup,
                                                        setHoveredNumber,
@@ -62,23 +63,11 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
     };
   }, []);
 
-  const handleCellClick = useCallback((num: RouletteNumber) => {
-    console.time(`handleCellClick-${num}`);
-    console.log(`🎯 Клик по ячейке ${num}, текущая история:`, history.length);
-
-    const startTime = performance.now();
-
-    // Используем startTransition для батчинга обновлений
-    startTransition(() => {
-      setHistory([...history, num]);
-      setActiveLabel(String(num));
-    });
-
-    const endTime = performance.now();
-    console.log(`📊 Объединенное обновление состояния: ${(endTime - startTime).toFixed(2)}ms`);
-
-    console.timeEnd(`handleCellClick-${num}`);
-  }, [history, setHistory, setActiveLabel]);
+  const handleMouseEnter = useCallback((num: RouletteNumber | null) => {
+    if (setHoveredNumber) {
+      setHoveredNumber(num);
+    }
+  }, [setHoveredNumber]);
 
   const renderCell = useCallback((num: RouletteNumber) => {
     const count = ageMap[String(num)] ?? '-';
@@ -92,13 +81,13 @@ const RouletteBoard: React.FC<RouletteBoardProps> = ({
         count={count}
         isActive={isActive}
         isHighlighted={isHighlighted}
-        onCellClick={handleCellClick}
+        onCellClick={onCellClick}
         history={history}
-        onMouseEnter={setHoveredNumber ? () => setHoveredNumber(num) : undefined}
-        onMouseLeave={setHoveredNumber ? () => setHoveredNumber(null) : undefined}
+        onMouseEnter={() => handleMouseEnter(num)}
+        onMouseLeave={() => handleMouseEnter(null)}
       />
     );
-  }, [ageMap, activeLabel, activeGroup, handleCellClick, history, setHoveredNumber]);
+  }, [ageMap, activeLabel, activeGroup, onCellClick, history, handleMouseEnter]);
 
   // Мемоизируем создание сетки чисел
   const numberGrid = useMemo(() => {

@@ -11,9 +11,11 @@ type RouletteRepositoryInterface interface {
 	ValidateSessionPassword(key, password string) (bool, error)
 	DeleteSession(key string) error
 	GetAllSessions() ([]*models.RouletteSession, error)
+	GetSessionHistorySince(key string, version int) ([]models.RouletteNumber, error)
 
 	// Number operations
 	AddNumberToSession(key string, number models.RouletteNumber) (*models.RouletteSession, error)
+	RemoveNumberFromSession(key string, index int) (*models.RouletteSession, error)
 	UpdateSessionHistory(key string, history []models.RouletteNumber) (*models.RouletteSession, error)
 
 	// Health and maintenance

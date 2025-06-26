@@ -45,6 +45,7 @@ interface DraggableDashboardProps {
   isHistoryWide: boolean;
   hoveredNumber: RouletteNumber | null;
   lastHoveredNumber: RouletteNumber | null;
+  onCellClick: (num: RouletteNumber) => void;
 }
 
 export const DraggableDashboard: React.FC<DraggableDashboardProps> = ({
@@ -64,6 +65,7 @@ export const DraggableDashboard: React.FC<DraggableDashboardProps> = ({
                                                                         isHistoryWide,
                                                                         hoveredNumber,
                                                                         lastHoveredNumber,
+                                                                        onCellClick,
                                                                       }) => {
   const [layouts, setLayouts] = useState<{ [key: string]: Layout[] }>({});
   const [hiddenWidgets, setHiddenWidgets] = useState<Set<string>>(new Set());
@@ -78,6 +80,7 @@ export const DraggableDashboard: React.FC<DraggableDashboardProps> = ({
           activeLabel={activeLabel}
           activeGroup={activeGroup}
           history={history}
+          onCellClick={onCellClick}
           setHistory={setHistory}
           setActiveLabel={setActiveLabel}
           setActiveGroup={setActiveGroup}
@@ -174,7 +177,7 @@ export const DraggableDashboard: React.FC<DraggableDashboardProps> = ({
       defaultSize: { w: 4, h: 8 },
       minSize: { w: 3, h: 6 },
     },
-  ], [history, ageMap, chartHistoryLength, setHistory, activeLabel, activeGroup, setActiveLabel, setActiveGroup, setHoveredNumber, showFullHistory, isHistoryWide, hoveredNumber, lastHoveredNumber]);
+  ], [history, ageMap, chartHistoryLength, setHistory, activeLabel, activeGroup, setActiveLabel, setActiveGroup, setHoveredNumber, showFullHistory, isHistoryWide, hoveredNumber, lastHoveredNumber, onCellClick]);
 
   const defaultLayouts = useMemo(() => {
     // Создаем оптимальную раскладку виджетов

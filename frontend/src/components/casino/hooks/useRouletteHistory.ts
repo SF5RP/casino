@@ -11,109 +11,113 @@ export function useRouletteWebSocket(key: string | undefined, token?: string) {
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [needsAuth, setNeedsAuth] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+
   const wsRef = useRef<WebSocket | null>(null);
-  const sendTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const shouldReconnectRef = useRef(true);
   const tokenRef = useRef(token);
+  const reconnectAttemptsRef = useRef(0);
+
   const connectWebSocketFn = useRef<(() => void) | null>(null);
 
-  // Обновляем токен при изменении
   useEffect(() => {
     tokenRef.current = token;
   }, [token]);
 
-  // Функция для обработки переподключения
   const handleReconnect = useCallback(() => {
-    if (!shouldReconnectRef.current) return;
+    if (!shouldReconnectRef.current || (wsRef.current && wsRef.current.readyState === WebSocket.OPEN)) return;
 
-    const baseDelay = WS_CONFIG.CONNECTION_OPTIONS.retryInterval;
-
+    reconnectAttemptsRef.current += 1;
+    setReconnectAttempts(reconnectAttemptsRef.current);
     setIsReconnecting(true);
-    setReconnectAttempts(prev => prev + 1);
 
-    // Экспоненциальная задержка с максимумом 30 секунд: 2s, 4s, 8s, 16s, 30s, 30s, ...
-    const delay = Math.min(baseDelay * Math.pow(2, reconnectAttempts), 30000);
+    const delay = Math.min(WS_CONFIG.CONNECTION_OPTIONS.retryInterval * Math.pow(2, reconnectAttemptsRef.current), 30000);
 
-    console.log(`🔄 Попытка переподключения ${reconnectAttempts + 1} через ${delay}ms`);
+    console.log(`🔄 Попытка переподключения ${reconnectAttemptsRef.current} через ${delay}ms`);
 
     reconnectTimeoutRef.current = setTimeout(() => {
       connectWebSocketFn.current?.();
     }, delay);
-  }, [reconnectAttempts]);
+  }, []);
 
-  // Функция для подключения к WebSocket
   const connectWebSocket = useCallback(() => {
     if (!key || !shouldReconnectRef.current) return;
 
-    try {
-      console.log('🔄 Подключение к WebSocket...', WEBSOCKET_URL);
-      const ws = new WebSocket(WEBSOCKET_URL);
-      wsRef.current = ws;
+    // Очищаем предыдущее соединение, если оно есть
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+    }
 
-      ws.onopen = () => {
-        console.log('✅ WebSocket подключен');
-        setIsConnected(true);
-        setIsReconnecting(false);
-        setReconnectAttempts(0);
-        setNeedsAuth(false);
-        setAuthError(null);
-        ws.send(JSON.stringify({ type: 'join', key, token: tokenRef.current }));
-      };
+    console.log('🔄 Подключение к WebSocket...', WEBSOCKET_URL);
+    const ws = new WebSocket(WEBSOCKET_URL);
+    wsRef.current = ws;
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
+    ws.onopen = () => {
+      console.log('✅ WebSocket подключен');
+      setIsConnected(true);
+      setIsReconnecting(false);
+      reconnectAttemptsRef.current = 0;
+      setReconnectAttempts(0);
+      setNeedsAuth(false);
+      setAuthError(null);
 
-          if (data.type === 'sync' && Array.isArray(data.history)) {
-            setHistory(data.history);
-          } else if (data.type === 'authRequired') {
-            console.warn('🔐 Требуется авторизация для сессии:', data.key);
-            setNeedsAuth(true);
-            setAuthError(data.error || 'Требуется токен');
-            setIsConnected(false);
-          } else if (data.type === 'error') {
-            console.error('❌ Ошибка от сервера:', data.error);
-            setAuthError(data.error);
-          }
-        } catch (error) {
-          console.error('❌ Ошибка парсинга WebSocket сообщения:', error);
+      ws.send(JSON.stringify({
+        type: 'join',
+        key,
+        token: tokenRef.current,
+        version: history.length,
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.key && data.key !== key) return;
+
+        if (data.type === 'sync' && Array.isArray(data.history)) {
+          setHistory(data.history);
+        } else if (data.type === 'add' && data.number !== undefined) {
+          setHistory(prev => (prev[prev.length - 1] === data.number ? prev : [...prev, data.number]));
+        } else if (data.type === 'remove') {
+          setHistory(prev => prev.filter((_, i) => i !== data.index));
+        } else if (data.type === 'authRequired') {
+          setNeedsAuth(true);
+          setAuthError(data.error || 'Требуется токен');
+          setIsConnected(false);
+        } else if (data.type === 'error') {
+          console.error('❌ Ошибка от сервера:', data.error);
+          setAuthError(data.error);
         }
-      };
+      } catch (error) {
+        console.error('❌ Ошибка парсинга WebSocket сообщения:', error);
+      }
+    };
 
-      ws.onclose = (event) => {
-        console.log('🔌 WebSocket закрыт:', event.code, event.reason);
-        setIsConnected(false);
-
-        // Только переподключаемся если это не намеренное закрытие
-        if (shouldReconnectRef.current && event.code !== 1000) {
-          handleReconnect();
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('❌ WebSocket ошибка:', error);
-        setIsConnected(false);
-      };
-
-    } catch (error) {
-      console.error('❌ Ошибка создания WebSocket:', error);
-      if (shouldReconnectRef.current) {
+    ws.onclose = (event) => {
+      console.log('🔌 WebSocket закрыт:', event.code, event.reason);
+      setIsConnected(false);
+      if (shouldReconnectRef.current && event.code !== 1000) {
         handleReconnect();
       }
-    }
-  }, [key, handleReconnect]);
+    };
+
+    ws.onerror = () => {
+      console.error('❌ WebSocket ошибка:');
+      setIsConnected(false);
+      // onclose будет вызван автоматически после onerror, он и запустит handleReconnect
+    };
+  }, [key, history.length, handleReconnect]);
 
   useEffect(() => {
     connectWebSocketFn.current = connectWebSocket;
   }, [connectWebSocket]);
 
-  // Основной эффект для подключения
   useEffect(() => {
     if (!key) return;
 
     shouldReconnectRef.current = true;
-    connectWebSocket();
+    connectWebSocketFn.current?.();
 
     return () => {
       console.log('🧹 Очистка WebSocket соединения');
@@ -121,120 +125,60 @@ export function useRouletteWebSocket(key: string | undefined, token?: string) {
 
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
       }
-
-      if (sendTimeoutRef.current) {
-        clearTimeout(sendTimeoutRef.current);
-        sendTimeoutRef.current = null;
-      }
-
       if (wsRef.current) {
+        wsRef.current.onclose = null;
         wsRef.current.close(1000, 'Component unmounting');
-        wsRef.current = null;
       }
-
-      setIsConnected(false);
-      setIsReconnecting(false);
-      setReconnectAttempts(0);
     };
   }, [key, connectWebSocket]);
 
-  // Отправка изменений (асинхронная)
-  const sendHistory = useCallback((newHistory: RouletteNumber[] | ((prev: RouletteNumber[]) => RouletteNumber[])) => {
-    console.time('sendHistory');
-    console.log('🚀 Начало sendHistory, текущая история:', history.length);
-
-    const startTime = performance.now();
-    const updatedHistory = typeof newHistory === 'function' ? newHistory(history) : newHistory;
-    const historyCalcTime = performance.now();
-    console.log(`📊 Расчет новой истории: ${(historyCalcTime - startTime).toFixed(2)}ms`);
-
-    // Сначала обновляем UI (синхронно)
-    setHistory(updatedHistory);
-    const setHistoryTime = performance.now();
-    console.log(`💾 setHistory: ${(setHistoryTime - historyCalcTime).toFixed(2)}ms`);
-
-    // Затем отправляем на сервер асинхронно с дебаунсингом (не блокируем UI)
-    if (sendTimeoutRef.current) {
-      clearTimeout(sendTimeoutRef.current);
+  const sendOptimisticUpdate = useCallback((message: object) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(message));
+    } else {
+      console.error("❌ WebSocket не готов для отправки.");
     }
+  }, []);
 
-    sendTimeoutRef.current = setTimeout(() => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && key) {
-        const wsStartTime = performance.now();
-        wsRef.current.send(JSON.stringify({
-          type: 'update',
-          key,
-          token: tokenRef.current,
-          history: updatedHistory
-        }));
-        const wsEndTime = performance.now();
-        console.log(`🌐 WebSocket send (async): ${(wsEndTime - wsStartTime).toFixed(2)}ms`);
-        console.log('📡 Отправлено на сервер:', updatedHistory.length, 'элементов');
-      } else {
-        console.log('❌ WebSocket не готов:', {
-          wsReady: wsRef.current?.readyState === WebSocket.OPEN,
-          hasKey: !!key,
-          readyState: wsRef.current?.readyState
-        });
-      }
-      sendTimeoutRef.current = null;
-    }, 10); // 10ms задержка для группировки быстрых кликов
+  const addNumber = useCallback((number: RouletteNumber) => {
+    setHistory(prev => [...prev, number]);
+    sendOptimisticUpdate({
+      type: 'add',
+      key,
+      token: tokenRef.current,
+      number,
+    });
+  }, [key, sendOptimisticUpdate]);
 
-    console.timeEnd('sendHistory');
-  }, [key, history]);
+  const removeNumberAtIndex = useCallback((index: number) => {
+    setHistory(prev => prev.filter((_, i) => i !== index));
+    sendOptimisticUpdate({
+      type: 'remove',
+      key,
+      token: tokenRef.current,
+      index,
+    });
+  }, [key, sendOptimisticUpdate]);
 
-  // Функция для принудительного переподключения
   const forceReconnect = useCallback(() => {
     console.log('🔄 Принудительное переподключение...');
-    shouldReconnectRef.current = true;
-    setReconnectAttempts(0);
-
-    // Закрываем текущее соединение если есть
     if (wsRef.current) {
-      wsRef.current.close(1000, 'Manual reconnect');
-      wsRef.current = null;
+      wsRef.current.close(4000, 'Manual reconnect');
     }
-
-    // Очищаем таймауты
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-
-    // Подключаемся заново
-    setIsReconnecting(true);
-    setTimeout(() => {
-      connectWebSocket();
-    }, 100);
-  }, [connectWebSocket]);
-
-  // Если ключа нет — возвращаем заглушку, но хук всегда вызывается!
-  if (!key) {
-    return {
-      history: [],
-      setHistory: () => {
-      },
-      isConnected: false,
-      isReconnecting: false,
-      reconnectAttempts: 0,
-      needsAuth: false,
-      authError: null,
-      forceReconnect: () => {
-      }
-    };
-  }
+    handleReconnect();
+  }, [handleReconnect]);
 
   return {
     history,
-    setHistory: sendHistory,
+    addNumber,
+    removeNumberAtIndex,
     isConnected,
     isReconnecting,
     reconnectAttempts,
     needsAuth,
     authError,
-    forceReconnect
+    forceReconnect,
   };
 }
 

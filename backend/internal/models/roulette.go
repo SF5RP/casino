@@ -53,11 +53,13 @@ type APIResponse struct {
 
 // WSMessage represents a WebSocket message
 type WSMessage struct {
-	Type     string           `json:"type"`
-	Key      string           `json:"key"`
-	Token    string           `json:"token,omitempty"`
-	History  []RouletteNumber `json:"history,omitempty"`
-	Number   *RouletteNumber  `json:"number,omitempty"`
-	Error    string           `json:"error,omitempty"`
-	Password string           `json:"password,omitempty"` // Пароль для авторизации
+	Type    string           `json:"type"`
+	Key     string           `json:"key,omitempty"`
+	Token   string           `json:"token,omitempty"`
+	History []RouletteNumber `json:"history,omitempty"`
+	Number  *RouletteNumber  `json:"number,omitempty"`
+	Error   string           `json:"error,omitempty"`
+	Version int              `json:"version,omitempty"` // Client's history version
+	Full    bool             `json:"full,omitempty"`    // Indicates if the history is a full sync
+	Index   int              `json:"index,omitempty"`   // Index for remove operations
 } 

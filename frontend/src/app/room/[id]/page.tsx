@@ -32,8 +32,7 @@ const RoomPageContent: React.FC = () => {
 
   const [sessionToken, setSessionToken] = useState<string | undefined>(() => {
     if (typeof window !== 'undefined') {
-      const token = window.sessionStorage.getItem(`token_${key}`);
-      return token || undefined;
+      return window.localStorage.getItem(`token_${key}`) || undefined;
     }
     return undefined;
   });
@@ -44,26 +43,19 @@ const RoomPageContent: React.FC = () => {
 
   const {
     history,
-    setHistory,
+    addNumber,
+    removeNumberAtIndex,
     isConnected,
     isReconnecting,
     reconnectAttempts,
-    needsAuth,
-    authError,
     forceReconnect,
   } = useRouletteWebSocket(key, sessionToken);
 
   useConnectionNotifications({
     isConnected,
     isReconnecting,
-    reconnectAttempts
+    reconnectAttempts,
   });
-
-  useEffect(() => {
-    if (needsAuth && !showPasswordDialog) {
-      setShowPasswordDialog(true);
-    }
-  }, [needsAuth, showPasswordDialog]);
 
   const [activeLabel, setActiveLabel] = useState('');
   const [activeGroup, setActiveGroup] = useState<number[]>([]);
@@ -80,6 +72,48 @@ const RoomPageContent: React.FC = () => {
   const [isDashboardMode, setIsDashboardMode] = useState(false);
   const [isDashboardEditMode, setIsDashboardEditMode] = useState(false);
 
+  const authenticate = useCallback(async (password?: string) => {
+    if (!key) return;
+    setIsAuthenticating(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/rooms/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, password: password || '' }),
+      });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          setShowPasswordDialog(true);
+          // Не показываем ошибку, просто ждем ввода пароля
+          return false;
+        }
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Ошибка аутентификации');
+      }
+
+      const { token } = await res.json();
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(`token_${key}`, token);
+      }
+      setSessionToken(token);
+      setShowPasswordDialog(false);
+      forceReconnect();
+      return true;
+    } catch (error: unknown) {
+      enqueueSnackbar(error instanceof Error ? error.message : 'Неизвестная ошибка', { variant: 'error' });
+      return false;
+    } finally {
+      setIsAuthenticating(false);
+    }
+  }, [key, enqueueSnackbar, forceReconnect]);
+
+  useEffect(() => {
+    if (!sessionToken && key) {
+      authenticate();
+    }
+  }, [key, sessionToken, authenticate]);
+
   useEffect(() => {
     const handleResize = () => {
       setWindowWidth(window.innerWidth);
@@ -95,12 +129,18 @@ const RoomPageContent: React.FC = () => {
   const ageMap = useMemo(() => calculateAgeMap(history), [history]);
 
   const resetAll = useCallback(() => {
-    setHistory([]);
-  }, [setHistory]);
+    if (window.confirm('Вы уверены, что хотите очистить всю историю?')) {
+      for (let i = 0; i < history.length; i++) {
+        setTimeout(() => removeNumberAtIndex(0), i * 50);
+      }
+    }
+  }, [history.length, removeNumberAtIndex]);
 
   const deleteLast = useCallback(() => {
-    setHistory(prev => prev.slice(0, -1));
-  }, [setHistory]);
+    if (history.length > 0) {
+      removeNumberAtIndex(history.length - 1);
+    }
+  }, [history.length, removeNumberAtIndex]);
 
   const handleShare = useCallback(async () => {
     const shareUrl = `${window.location.origin}/room/${key}`;
@@ -108,9 +148,14 @@ const RoomPageContent: React.FC = () => {
     enqueueSnackbar('Ссылка скопирована! Можно делиться.', { variant: 'success' });
   }, [key, enqueueSnackbar]);
 
-  const handleSetHistory = useCallback((newHistory: React.SetStateAction<RouletteNumber[]>) => {
-    setHistory(newHistory);
-  }, [setHistory]);
+  const handleCellClick = useCallback((number: RouletteNumber) => {
+    addNumber(number);
+  }, [addNumber]);
+
+  const handleSetHistory = useCallback(() => {
+    // Эта функция теперь используется только для UI-взаимодействий, не для синхронизации
+    // Например, для временной фильтрации, если бы она была
+  }, []);
 
   const handleSetActiveLabel = useCallback((label: string) => {
     setActiveLabel(label);
@@ -123,33 +168,6 @@ const RoomPageContent: React.FC = () => {
   const handleSetHoveredNumber = (num: RouletteNumber | null) => {
     setHoveredNumber(num);
     if (num !== null) setLastHoveredNumber(num);
-  };
-
-  const authenticate = async (password?: string) => {
-    if (!key) return;
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/rooms/auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, password: password || '' }),
-      });
-
-      if (!res.ok) {
-        throw new Error((await res.json()).error || 'Ошибка аутентификации');
-      }
-
-      const { token } = await res.json();
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(`token_${key}`, token);
-      }
-      setSessionToken(token);
-      setShowPasswordDialog(false);
-      forceReconnect();
-      return true;
-    } catch (error: unknown) {
-      enqueueSnackbar(error instanceof Error ? error.message : 'Неизвестная ошибка', { variant: 'error' });
-      return false;
-    }
   };
 
   const handlePasswordSubmit = (password: string) => {
@@ -171,7 +189,7 @@ const RoomPageContent: React.FC = () => {
 
       const { token } = await res.json();
       if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(`token_${roomKey}`, token);
+        window.localStorage.setItem(`token_${roomKey}`, token);
       }
 
       setShowCreateRoomDialog(false);
@@ -188,7 +206,7 @@ const RoomPageContent: React.FC = () => {
     setShowCreateRoomDialog(false);
   }, []);
 
-  if (!isConnected && !needsAuth) {
+  if (!isConnected && !showPasswordDialog) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
         <CircularProgress />
@@ -196,12 +214,11 @@ const RoomPageContent: React.FC = () => {
     );
   }
 
-  if (needsAuth) {
+  if (showPasswordDialog) {
     return (
       <PasswordEntryForm
         roomKey={key!}
         onSubmit={handlePasswordSubmit}
-        error={authError}
         isSubmitting={isAuthenticating}
       />
     );
@@ -259,6 +276,7 @@ const RoomPageContent: React.FC = () => {
           isHistoryWide={isHistoryWide}
           hoveredNumber={hoveredNumber}
           lastHoveredNumber={lastHoveredNumber}
+          onCellClick={handleCellClick}
         />
 
         <ConnectionStatus
@@ -348,21 +366,23 @@ const RoomPageContent: React.FC = () => {
           history={history}
           showFullHistory={showFullHistory}
           historyRows={historyRows}
-          isWide={isHistoryWide}
           setHoveredNumber={handleSetHoveredNumber}
         />
 
-        <RouletteBoard
-          ageMap={ageMap}
-          activeLabel={activeLabel}
-          activeGroup={activeGroup}
-          history={history}
-          setHistory={handleSetHistory}
-          setActiveLabel={handleSetActiveLabel}
-          setActiveGroup={handleSetActiveGroup}
-          setHoveredNumber={handleSetHoveredNumber}
-        />
-
+        <Box sx={{
+          gridColumn: shouldShowSidebar ? '1 / 2' : '1 / 3',
+        }}>
+          <RouletteBoard
+            history={history}
+            ageMap={ageMap}
+            activeLabel={activeLabel}
+            activeGroup={activeGroup}
+            onCellClick={handleCellClick}
+            setActiveLabel={handleSetActiveLabel}
+            setActiveGroup={handleSetActiveGroup}
+            setHoveredNumber={handleSetHoveredNumber}
+          />
+        </Box>
 
         <Box minWidth={600}>
           <RouletteTrendsChart history={history as number[]} chartHistoryLength={chartHistoryLength} />
