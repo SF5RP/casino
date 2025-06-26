@@ -63,19 +63,36 @@ jobs:
         NEXT_PUBLIC_WS_URL: ${{ secrets.FRONTEND_WS_URL || '/ws' }}
       run: npm run build
         
+    - name: Verify build output
+      working-directory: frontend
+      run: |
+        if [ ! -d ".next" ]; then
+          echo "❌ .next directory not found! Build failed."
+          exit 1
+        fi
+        echo "✅ Build output verified - .next directory exists"
+        ls -la .next/
+        
     - name: Prepare deployment files
       working-directory: frontend
       run: |
         mkdir deploy_package
-        cp -r .next deploy_package/
         
+        # Copy built application (most important!)
+        cp -r .next deploy_package/
+        echo "✅ Copied .next directory"
+        
+        # Copy public directory
         if [ -d "public" ]; then
           cp -r public deploy_package/
         else
           mkdir deploy_package/public
         fi
         
+        # Copy node_modules
         cp -r node_modules deploy_package/
+        
+        # Copy configuration files
         cp package.json deploy_package/
         cp package-lock.json deploy_package/
         cp next.config.ts deploy_package/
@@ -84,15 +101,14 @@ jobs:
           cp tsconfig.json deploy_package/
         fi
         
-        if [ -f "start-prod.js" ]; then
-          cp start-prod.js deploy_package/
-        else
-          cat > deploy_package/start-prod.js << 'EOF'
+        # Create production start script (FIXED - no build on server!)
+        cat > deploy_package/start-prod.js << 'EOF'
         const { spawn } = require('child_process');
         
-        console.log('Starting Next.js production server...');
+        console.log('🚀 Starting Next.js production server...');
         
-        const nextApp = spawn('npm', ['run', 'start'], {
+        // Start Next.js in production mode on all interfaces
+        const nextApp = spawn('npx', ['next', 'start', '-p', process.env.PORT || 3000, '-H', '0.0.0.0'], {
           stdio: 'inherit',
           env: {
             ...process.env,
@@ -117,11 +133,9 @@ jobs:
           nextApp.kill('SIGTERM');
         });
         EOF
-        fi
         
-        if [ -f "config.js" ]; then
-          cp config.js deploy_package/
-        else
+        # Create config.js if needed
+        if [ ! -f "config.js" ]; then
           cat > deploy_package/config.js << 'EOF'
         const config = {
           APP_PORT: process.env.PORT || 3000,
@@ -132,6 +146,7 @@ jobs:
         EOF
         fi
         
+        # Create PM2 ecosystem config
         cat > deploy_package/ecosystem.config.js << 'EOF'
         module.exports = {
           apps: [{
@@ -149,12 +164,19 @@ jobs:
             out_file: '/var/log/pm2/casino-frontend-out.log',
             log_file: '/var/log/pm2/casino-frontend-combined.log',
             time: true,
-            max_restarts: 10,
+            max_restarts: 3,
             min_uptime: '10s',
-            max_memory_restart: '1G'
+            max_memory_restart: '1G',
+            restart_delay: 4000
           }]
         };
         EOF
+        
+        # Verify deployment package contents
+        echo "📦 Deployment package contents:"
+        ls -la deploy_package/
+        echo "📁 .next directory in package:"
+        ls -la deploy_package/.next/ | head -10
         
     - name: Install SSH key
       uses: shimataro/ssh-key-action@v2
@@ -202,6 +224,16 @@ jobs:
         echo "📁 Setting up frontend directory..."
         cd casino-frontend
         
+        # Verify .next exists after extraction
+        if [ ! -d ".next" ]; then
+          echo "❌ ERROR: .next directory not found after extraction!"
+          echo "Contents of casino-frontend directory:"
+          ls -la
+          exit 1
+        fi
+        echo "✅ .next directory verified on server"
+        
+        # Create logs directory
         sudo mkdir -p /var/log/pm2
         sudo chown -R $USER:$USER /var/log/pm2
         
@@ -210,7 +242,7 @@ jobs:
         pm2 save
         
         echo "✅ Verifying deployment..."
-        sleep 10
+        sleep 15
         if pm2 list | grep -q "casino-frontend.*online"; then
           echo "✅ Frontend deployment successful!"
           pm2 status casino-frontend
@@ -226,7 +258,7 @@ jobs:
     - name: Health check
       run: |
         echo "🏥 Running frontend health check..."
-        sleep 15
+        sleep 20
         
         if curl -f http://${{ secrets.SERVER_HOST }}:3000; then
           echo "✅ Frontend health check passed!"
