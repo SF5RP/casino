@@ -1,0 +1,206 @@
+name: Build and Deploy Frontend
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - staging
+
+env:
+  NODE_VERSION: '18'
+  APP_NAME: 'casino-frontend'
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: frontend
+      run: |
+        npm ci
+        
+    - name: Run linting
+      working-directory: frontend
+      run: |
+        npm run lint
+        
+    - name: Run type checking
+      working-directory: frontend
+      run: |
+        npm run type-check || npx tsc --noEmit
+        
+    - name: Build application
+      working-directory: frontend
+      env:
+        NODE_ENV: production
+        NEXT_PUBLIC_API_URL: ${{ secrets.FRONTEND_API_URL || '/api' }}
+        NEXT_PUBLIC_WS_URL: ${{ secrets.FRONTEND_WS_URL || '/ws' }}
+      run: |
+        npm run build
+        
+    - name: Prepare deployment files
+      working-directory: frontend
+      run: |
+        mkdir deploy_package
+        
+        # Copy built application
+        cp -r .next deploy_package/
+        cp -r public deploy_package/
+        cp -r node_modules deploy_package/
+        
+        # Copy configuration files
+        cp package.json deploy_package/
+        cp package-lock.json deploy_package/
+        cp next.config.ts deploy_package/
+        cp tsconfig.json deploy_package/
+        
+        # Copy startup scripts
+        cp start-prod.js deploy_package/
+        cp config.js deploy_package/
+        
+        # Create PM2 ecosystem config
+        cat > deploy_package/ecosystem.config.js << 'EOF'
+        module.exports = {
+          apps: [{
+            name: 'casino-frontend',
+            script: 'start-prod.js',
+            instances: 1,
+            exec_mode: 'fork',
+            env: {
+              NODE_ENV: 'production',
+              PORT: 3000,
+              NEXT_PUBLIC_API_URL: '/api',
+              NEXT_PUBLIC_WS_URL: '/ws'
+            },
+            error_file: '/var/log/pm2/casino-frontend-error.log',
+            out_file: '/var/log/pm2/casino-frontend-out.log',
+            log_file: '/var/log/pm2/casino-frontend-combined.log',
+            time: true,
+            max_restarts: 10,
+            min_uptime: '10s',
+            max_memory_restart: '1G'
+          }]
+        };
+        EOF
+        
+    - name: Install SSH key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        known_hosts: 'just-a-placeholder'
+        
+    - name: Deploy and restart frontend
+      run: |
+        echo "🚀 Deploying frontend to production environment..."
+        echo "📍 Server: ${{ secrets.SERVER_HOST }}"
+        echo "👤 User: ${{ secrets.SERVER_USER }}"
+        echo "🌿 Branch: ${{ github.ref_name }}"
+        echo "📝 Commit: ${{ github.sha }}"
+        
+        # Create deployment archive
+        cd frontend/deploy_package
+        tar -czf ../casino-frontend-deploy.tar.gz .
+        cd ..
+        
+        # Copy deployment package to server
+        scp -o StrictHostKeyChecking=no -P ${{ secrets.SSH_PORT || '22' }} \
+            casino-frontend-deploy.tar.gz \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/
+            
+        # Execute deployment commands on server
+        ssh -o StrictHostKeyChecking=no -p ${{ secrets.SSH_PORT || '22' }} \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+        set -e
+
+        echo "🔄 Stopping frontend service..."
+        pm2 stop casino-frontend || true
+
+        echo "📦 Extracting deployment package..."
+        rm -rf casino-frontend-backup
+        if [ -d "casino-frontend" ]; then
+          mv casino-frontend casino-frontend-backup
+        fi
+        
+        mkdir -p casino-frontend
+        tar -xzf casino-frontend-deploy.tar.gz -C casino-frontend
+        
+        echo "📁 Setting up frontend directory..."
+        cd casino-frontend
+        
+        # Create logs directory
+        sudo mkdir -p /var/log/pm2
+        sudo chown -R $USER:$USER /var/log/pm2
+
+        echo "🚀 Starting frontend service..."
+        pm2 start ecosystem.config.js
+        pm2 save
+
+        echo "✅ Verifying deployment..."
+        sleep 10
+        if pm2 list | grep -q "casino-frontend.*online"; then
+          echo "✅ Frontend deployment successful!"
+          pm2 status casino-frontend
+        else
+          echo "❌ Frontend deployment failed!"
+          pm2 logs casino-frontend --lines 20
+          exit 1
+        fi
+        
+        # Cleanup
+        rm -f ~/casino-frontend-deploy.tar.gz
+        EOF
+        
+    - name: Health check
+      run: |
+        echo "🏥 Running frontend health check..."
+        sleep 15
+        
+        if curl -f http://${{ secrets.SERVER_HOST }}:3000; then
+          echo "✅ Frontend health check passed!"
+        else
+          echo "❌ Frontend health check failed!"
+          exit 1
+        fi
+        
+    - name: Deployment summary
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "🚀 Frontend deployment completed successfully!"
+          echo "## 🚀 Frontend Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: http://${{ secrets.SERVER_HOST }}:3000" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "💥 Frontend deployment failed!"
+          echo "## 💥 Frontend Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+        fi 

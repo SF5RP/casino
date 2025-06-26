@@ -1,0 +1,243 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'frontend/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'frontend/**'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  lint-and-type-check:
+    name: Lint and Type Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: frontend
+      run: npm ci
+      
+    - name: Run ESLint
+      working-directory: frontend
+      run: |
+        npm run lint -- --format=json --output-file=eslint-report.json || true
+        npm run lint
+        
+    - name: Run TypeScript type checking
+      working-directory: frontend
+      run: |
+        npm run type-check || npx tsc --noEmit
+        
+    - name: Upload ESLint report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: eslint-report
+        path: frontend/eslint-report.json
+        retention-days: 7
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: frontend
+      run: npm ci
+      
+    - name: Run unit tests
+      working-directory: frontend
+      run: |
+        npm test -- --coverage --watchAll=false --passWithNoTests
+        
+    - name: Upload test coverage
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: frontend/coverage/
+        retention-days: 7
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: [lint-and-type-check, test]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: frontend
+      run: npm ci
+      
+    - name: Build application
+      working-directory: frontend
+      env:
+        NODE_ENV: production
+        NEXT_PUBLIC_API_URL: '/api'
+        NEXT_PUBLIC_WS_URL: '/ws'
+      run: |
+        npm run build
+        
+    - name: Check build size
+      working-directory: frontend
+      run: |
+        echo "## 📊 Build Analysis" >> $GITHUB_STEP_SUMMARY
+        echo "### Bundle Size" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        du -sh .next/ >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-output
+        path: frontend/.next/
+        retention-days: 7
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: frontend
+      run: npm ci
+      
+    - name: Run security audit
+      working-directory: frontend
+      run: |
+        npm audit --audit-level=moderate
+        
+    - name: Run dependency check
+      working-directory: frontend
+      run: |
+        npx depcheck || true
+
+  performance-check:
+    name: Performance Check
+    runs-on: ubuntu-latest
+    needs: [build]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: frontend
+      run: npm ci
+      
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-output
+        path: frontend/.next/
+        
+    - name: Install Lighthouse CI
+      run: npm install -g @lhci/cli@0.12.x
+      
+    - name: Build and start server
+      working-directory: frontend
+      run: |
+        npm run build
+        npm start &
+        sleep 10
+        
+    - name: Run Lighthouse CI
+      working-directory: frontend
+      run: |
+        lhci autorun --collect.startServerCommand="npm start" --collect.url="http://localhost:3000" || true
+
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [lint-and-type-check, test, build, security-scan]
+    if: always()
+    
+    steps:
+    - name: Check quality gate
+      run: |
+        echo "## 🎯 Quality Gate Results" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.lint-and-type-check.result }}" == "success" ]; then
+          echo "✅ Lint and Type Check: PASSED" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Lint and Type Check: FAILED" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.test.result }}" == "success" ]; then
+          echo "✅ Tests: PASSED" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Tests: FAILED" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.build.result }}" == "success" ]; then
+          echo "✅ Build: PASSED" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Build: FAILED" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.security-scan.result }}" == "success" ]; then
+          echo "✅ Security Scan: PASSED" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Security Scan: FAILED" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Fail if critical checks failed
+        if [ "${{ needs.lint-and-type-check.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ] || [ "${{ needs.build.result }}" != "success" ]; then
+          echo "❌ Quality gate failed!"
+          exit 1
+        else
+          echo "✅ Quality gate passed!"
+        fi 
