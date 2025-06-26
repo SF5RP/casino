@@ -146,8 +146,8 @@ jobs:
         EOF
         fi
         
-        # Create PM2 ecosystem config
-        cat > deploy_package/ecosystem.config.js << 'EOF'
+        # Create PM2 ecosystem config template
+        cat > deploy_package/ecosystem.config.template.js << 'EOF'
         module.exports = {
           apps: [{
             name: 'casino-frontend',
@@ -157,8 +157,11 @@ jobs:
             env: {
               NODE_ENV: 'production',
               PORT: 3000,
-              NEXT_PUBLIC_API_URL: '/api',
-              NEXT_PUBLIC_WS_URL: '/ws'
+              // Переменные будут загружены из .env.production на сервере
+              NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '/api',
+              NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || '/ws',
+              NEXT_PUBLIC_WS_PROTOCOL: process.env.NEXT_PUBLIC_WS_PROTOCOL || 'ws',
+              NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV || 'production'
             },
             error_file: '/var/log/pm2/casino-frontend-error.log',
             out_file: '/var/log/pm2/casino-frontend-out.log',
@@ -232,6 +235,18 @@ jobs:
           exit 1
         fi
         echo "✅ .next directory verified on server"
+        
+        # Check if .env.production exists, if not - warn user
+        if [ ! -f ".env.production" ]; then
+          echo "⚠️  WARNING: .env.production not found!"
+          echo "📝 Please create it manually with your environment variables"
+          echo "📖 See docs/FRONTEND_ENV_SETUP.md for instructions"
+        else
+          echo "✅ .env.production found - using existing configuration"
+        fi
+        
+        # Copy template to final config
+        cp ecosystem.config.template.js ecosystem.config.js
         
         # Create logs directory
         sudo mkdir -p /var/log/pm2
