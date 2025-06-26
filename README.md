@@ -98,7 +98,7 @@ casino/
 
 ### Frontend Development
 ```bash
-cd frontend
+cd frontend 
 
 # Install dependencies
 npm install
