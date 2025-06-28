@@ -275,7 +275,7 @@ jobs:
         echo "🏥 Running frontend health check..."
         sleep 20
         
-        if curl -f http://${{ secrets.SERVER_HOST }}:3000; then
+        if curl -f http://${{ secrets.HOST_NAME }}; then
           echo "✅ Frontend health check passed!"
         else
           echo "❌ Frontend health check failed!"

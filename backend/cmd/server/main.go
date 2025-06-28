@@ -198,6 +198,8 @@ func handleCLICommands() {
 		handleRollbackCommand()
 	case "migration-status":
 		handleMigrationStatusCommand()
+	case "reset-migrations":
+		handleResetMigrationsCommand()
 	case "help", "--help", "-h":
 		printHelp()
 	default:
@@ -268,6 +270,49 @@ func handleRollbackCommand() {
 	fmt.Printf("Current version: %d\n", status.CurrentVersion)
 }
 
+// handleResetMigrationsCommand resets all migrations
+func handleResetMigrationsCommand() {
+	fmt.Printf("⚠️  WARNING: This will drop all tables and reset all migrations!\n")
+	fmt.Printf("Are you sure you want to continue? (yes/no): ")
+	
+	var response string
+	fmt.Scanln(&response)
+	
+	if response != "yes" {
+		fmt.Println("Operation cancelled.")
+		return
+	}
+
+	db, err := database.Connect()
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	log.Println("Resetting all migrations...")
+	
+	// Get all applied migrations and rollback them all
+	status, err := db.GetMigrationStatus()
+	if err != nil {
+		log.Fatalf("Failed to get migration status: %v", err)
+	}
+
+	if status.AppliedMigrations > 0 {
+		log.Printf("Rolling back %d applied migrations...", status.AppliedMigrations)
+		if err := db.RollbackMigrations(status.AppliedMigrations); err != nil {
+			log.Fatalf("Failed to rollback migrations: %v", err)
+		}
+	}
+
+	// Drop schema_migrations table to completely reset
+	if _, err := db.Exec("DROP TABLE IF EXISTS schema_migrations"); err != nil {
+		log.Printf("Warning: Failed to drop schema_migrations table: %v", err)
+	}
+
+	fmt.Printf("✅ All migrations have been reset successfully!\n")
+	fmt.Printf("You can now run 'casino-backend migrate' to apply migrations from scratch.\n")
+}
+
 // handleMigrationStatusCommand shows migration status
 func handleMigrationStatusCommand() {
 	db, err := database.Connect()
@@ -325,6 +370,7 @@ func printHelp() {
 	fmt.Printf("  casino-backend migrate            Run pending migrations\n")
 	fmt.Printf("  casino-backend rollback <steps>   Rollback N migrations\n")
 	fmt.Printf("  casino-backend migration-status   Show migration status\n")
+	fmt.Printf("  casino-backend reset-migrations   Reset all migrations (DANGER!)\n")
 	fmt.Printf("  casino-backend help               Show this help\n\n")
 	fmt.Printf("Environment Variables:\n")
 	fmt.Printf("  DB_HOST        Database host (default: localhost)\n")

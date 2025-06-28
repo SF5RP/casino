@@ -34,7 +34,6 @@ func (m *MigrationManager) GetMigrations() []Migration {
 			Version:     1,
 			Description: "Create initial tables",
 			Up: `
-				-- Create roulette_sessions table
 				CREATE TABLE IF NOT EXISTS roulette_sessions (
 					id SERIAL PRIMARY KEY,
 					key VARCHAR(255) UNIQUE NOT NULL,
@@ -42,7 +41,6 @@ func (m *MigrationManager) GetMigrations() []Migration {
 					updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 				);
 
-				-- Create roulette_numbers table
 				CREATE TABLE IF NOT EXISTS roulette_numbers (
 					id SERIAL PRIMARY KEY,
 					session_id INTEGER NOT NULL REFERENCES roulette_sessions(id) ON DELETE CASCADE,
@@ -52,7 +50,6 @@ func (m *MigrationManager) GetMigrations() []Migration {
 					UNIQUE(session_id, position)
 				);
 
-				-- Create indexes
 				CREATE INDEX IF NOT EXISTS idx_roulette_sessions_key ON roulette_sessions(key);
 				CREATE INDEX IF NOT EXISTS idx_roulette_numbers_session_id ON roulette_numbers(session_id);
 				CREATE INDEX IF NOT EXISTS idx_roulette_numbers_position ON roulette_numbers(session_id, position);
@@ -236,10 +233,10 @@ func (m *MigrationManager) ApplyMigration(migration Migration) error {
 	defer tx.Rollback()
 
 	// Execute migration SQL
-	statements := strings.Split(migration.Up, ";")
+	statements := splitSQLStatements(migration.Up)
 	for _, stmt := range statements {
 		stmt = strings.TrimSpace(stmt)
-		if stmt == "" || strings.HasPrefix(stmt, "--") {
+		if stmt == "" {
 			continue
 		}
 
@@ -284,10 +281,10 @@ func (m *MigrationManager) RollbackMigration(migration Migration) error {
 	defer tx.Rollback()
 
 	// Execute rollback SQL
-	statements := strings.Split(migration.Down, ";")
+	statements := splitSQLStatements(migration.Down)
 	for _, stmt := range statements {
 		stmt = strings.TrimSpace(stmt)
-		if stmt == "" || strings.HasPrefix(stmt, "--") {
+		if stmt == "" {
 			continue
 		}
 
@@ -448,4 +445,54 @@ func generateChecksum(content string) string {
 	}
 	
 	return strconv.Itoa(hash)
+}
+
+// splitSQLStatements splits SQL content into individual statements
+// This function handles multi-line statements better than simple string split
+func splitSQLStatements(sql string) []string {
+	var statements []string
+	var current strings.Builder
+	
+	lines := strings.Split(sql, "\n")
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		
+		// Skip empty lines
+		if line == "" {
+			continue
+		}
+		
+		// Skip comment lines
+		if strings.HasPrefix(line, "--") {
+			continue
+		}
+		
+		// Add line to current statement
+		if current.Len() > 0 {
+			current.WriteString("\n")
+		}
+		current.WriteString(line)
+		
+		// Check if statement ends with semicolon
+		if strings.HasSuffix(line, ";") {
+			stmt := current.String()
+			stmt = strings.TrimSuffix(stmt, ";")
+			stmt = strings.TrimSpace(stmt)
+			if stmt != "" {
+				statements = append(statements, stmt)
+			}
+			current.Reset()
+		}
+	}
+	
+	// Add remaining statement if any
+	if current.Len() > 0 {
+		stmt := strings.TrimSpace(current.String())
+		if stmt != "" {
+			statements = append(statements, stmt)
+		}
+	}
+	
+	return statements
 } 
