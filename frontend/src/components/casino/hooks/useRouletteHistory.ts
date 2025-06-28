@@ -43,6 +43,12 @@ export function useRouletteWebSocket(key: string | undefined, token?: string) {
   const connectWebSocket = useCallback(() => {
     if (!key || !shouldReconnectRef.current) return;
 
+    // Проверяем, есть ли уже активное соединение
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      console.log('🔗 WebSocket уже подключен, пропускаем создание нового соединения');
+      return;
+    }
+
     // Очищаем предыдущее соединение, если оно есть
     if (wsRef.current) {
       wsRef.current.onclose = null;
@@ -66,7 +72,7 @@ export function useRouletteWebSocket(key: string | undefined, token?: string) {
         type: 'join',
         key,
         token: tokenRef.current,
-        version: history.length,
+        version: 0, // Убираем зависимость от history.length
       }));
     };
 
@@ -107,17 +113,22 @@ export function useRouletteWebSocket(key: string | undefined, token?: string) {
       setIsConnected(false);
       // onclose будет вызван автоматически после onerror, он и запустит handleReconnect
     };
-  }, [key, history.length, handleReconnect]);
+  }, [key, handleReconnect]);
 
   useEffect(() => {
     connectWebSocketFn.current = connectWebSocket;
   }, [connectWebSocket]);
 
+  // Инициализация соединения только при изменении ключа
   useEffect(() => {
     if (!key) return;
 
     shouldReconnectRef.current = true;
-    connectWebSocketFn.current?.();
+    
+    // Создаем соединение только если его еще нет
+    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+      connectWebSocketFn.current?.();
+    }
 
     return () => {
       console.log('🧹 Очистка WebSocket соединения');
@@ -131,7 +142,7 @@ export function useRouletteWebSocket(key: string | undefined, token?: string) {
         wsRef.current.close(1000, 'Component unmounting');
       }
     };
-  }, [key, connectWebSocket]);
+  }, [key]); // Только зависимость от ключа
 
   const sendOptimisticUpdate = useCallback((message: object) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
