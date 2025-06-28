@@ -130,7 +130,7 @@ jobs:
         echo "🏥 Running health check..."
         sleep 10
         
-        if curl -f http://${{ secrets.SERVER_HOST }}:8080/health; then
+        if curl -f http://${{ secrets.HOST_NAME }}/health; then
           echo "✅ Health check passed!"
         else
           echo "❌ Health check failed!"

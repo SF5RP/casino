@@ -448,14 +448,29 @@ func generateChecksum(content string) string {
 }
 
 // splitSQLStatements splits SQL content into individual statements
-// This function handles multi-line statements better than simple string split
+// This function handles multi-line statements and PostgreSQL dollar-quoted strings
 func splitSQLStatements(sql string) []string {
 	var statements []string
 	var current strings.Builder
+	var inDollarQuote bool
+	var dollarTag string
+	
+	// First, handle simple case of multiple statements on one line
+	if !strings.Contains(sql, "\n") && strings.Contains(sql, ";") {
+		parts := strings.Split(sql, ";")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				statements = append(statements, part)
+			}
+		}
+		return statements
+	}
 	
 	lines := strings.Split(sql, "\n")
 	
 	for _, line := range lines {
+		originalLine := line
 		line = strings.TrimSpace(line)
 		
 		// Skip empty lines
@@ -463,19 +478,48 @@ func splitSQLStatements(sql string) []string {
 			continue
 		}
 		
-		// Skip comment lines
-		if strings.HasPrefix(line, "--") {
+		// Skip comment lines (only if not inside dollar quote)
+		if !inDollarQuote && strings.HasPrefix(line, "--") {
 			continue
 		}
 		
-		// Add line to current statement
+		// Add line to current statement, preserving relative indentation
 		if current.Len() > 0 {
 			current.WriteString("\n")
 		}
+		
+		// For multi-line statements, preserve some indentation
+		if strings.HasPrefix(originalLine, "\t") || strings.HasPrefix(originalLine, "  ") {
+			// Keep one level of indentation for readability
+			if strings.HasPrefix(originalLine, "\t\t") {
+				current.WriteString("\t")
+			} else if strings.HasPrefix(originalLine, "    ") {
+				current.WriteString("\t")
+			}
+		}
 		current.WriteString(line)
 		
-		// Check if statement ends with semicolon
-		if strings.HasSuffix(line, ";") {
+		// Check for dollar-quoted strings (PostgreSQL function syntax)
+		if !inDollarQuote {
+			// Look for start of dollar quote ($$, $tag$, etc.)
+			if dollarStart := strings.Index(line, "$"); dollarStart != -1 {
+				// Find the end of the dollar tag
+				dollarEnd := strings.Index(line[dollarStart+1:], "$")
+				if dollarEnd != -1 {
+					dollarTag = line[dollarStart : dollarStart+dollarEnd+2]
+					inDollarQuote = true
+				}
+			}
+		} else {
+			// Look for end of dollar quote
+			if strings.Contains(line, dollarTag) {
+				inDollarQuote = false
+				dollarTag = ""
+			}
+		}
+		
+		// Check if statement ends with semicolon (only if not in dollar quote)
+		if !inDollarQuote && strings.HasSuffix(line, ";") {
 			stmt := current.String()
 			stmt = strings.TrimSuffix(stmt, ";")
 			stmt = strings.TrimSpace(stmt)
