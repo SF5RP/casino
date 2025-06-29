@@ -80,7 +80,8 @@ func (m *MigrationManager) GetMigrations() []Migration {
 		{
 			Version:     5,
 			Description: "Add updated_at trigger",
-			Up: `CREATE TRIGGER update_roulette_sessions_updated_at
+			Up: `DROP TRIGGER IF EXISTS update_roulette_sessions_updated_at ON roulette_sessions;
+			CREATE TRIGGER update_roulette_sessions_updated_at
 				BEFORE UPDATE ON roulette_sessions
 				FOR EACH ROW
 				EXECUTE FUNCTION update_updated_at_column()`,
