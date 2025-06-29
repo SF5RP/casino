@@ -3,7 +3,6 @@ package database
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,118 +33,58 @@ func (m *MigrationManager) GetMigrations() []Migration {
 		{
 			Version:     1,
 			Description: "Create initial tables",
-			Up: `
-				CREATE TABLE IF NOT EXISTS roulette_sessions (
-					id SERIAL PRIMARY KEY,
-					key VARCHAR(255) UNIQUE NOT NULL,
-					password VARCHAR(255),
-					created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-					updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-				);
-
-				CREATE TABLE IF NOT EXISTS roulette_numbers (
-					id SERIAL PRIMARY KEY,
-					session_id INTEGER NOT NULL REFERENCES roulette_sessions(id) ON DELETE CASCADE,
-					number TEXT NOT NULL,
-					position INTEGER NOT NULL,
-					created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-					UNIQUE(session_id, position)
-				);
-
-				CREATE INDEX IF NOT EXISTS idx_roulette_sessions_key ON roulette_sessions(key);
-				CREATE INDEX IF NOT EXISTS idx_roulette_numbers_session_id ON roulette_numbers(session_id);
-				CREATE INDEX IF NOT EXISTS idx_roulette_numbers_position ON roulette_numbers(session_id, position);
-			`,
-			Down: `
-				DROP INDEX IF EXISTS idx_roulette_numbers_position;
-				DROP INDEX IF EXISTS idx_roulette_numbers_session_id;
-				DROP INDEX IF EXISTS idx_roulette_sessions_key;
-				DROP TABLE IF EXISTS roulette_numbers;
-				DROP TABLE IF EXISTS roulette_sessions;
-			`,
+			Up: `CREATE TABLE IF NOT EXISTS roulette_sessions (
+				id SERIAL PRIMARY KEY,
+				key VARCHAR(255) UNIQUE NOT NULL,
+				password VARCHAR(255),
+				created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+				updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+			)`,
+			Down: `DROP TABLE IF EXISTS roulette_sessions`,
 		},
 		{
 			Version:     2,
-			Description: "Add updated_at trigger for roulette_sessions",
-			Up: `
-				CREATE OR REPLACE FUNCTION update_updated_at_column()
-				RETURNS TRIGGER AS $$
-				BEGIN
-					NEW.updated_at = NOW();
-					RETURN NEW;
-				END;
-				$$ language 'plpgsql';
-
-				CREATE TRIGGER update_roulette_sessions_updated_at
-					BEFORE UPDATE ON roulette_sessions
-					FOR EACH ROW
-					EXECUTE FUNCTION update_updated_at_column();
-			`,
-			Down: `
-				DROP TRIGGER IF EXISTS update_roulette_sessions_updated_at ON roulette_sessions;
-				DROP FUNCTION IF EXISTS update_updated_at_column();
-			`,
+			Description: "Create roulette numbers table",
+			Up: `CREATE TABLE IF NOT EXISTS roulette_numbers (
+				id SERIAL PRIMARY KEY,
+				session_id INTEGER NOT NULL REFERENCES roulette_sessions(id) ON DELETE CASCADE,
+				number TEXT NOT NULL,
+				position INTEGER NOT NULL,
+				created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+				UNIQUE(session_id, position)
+			)`,
+			Down: `DROP TABLE IF EXISTS roulette_numbers`,
 		},
 		{
 			Version:     3,
-			Description: "Add statistics and metadata tables",
-			Up: `
-				-- Create statistics table for performance tracking
-				CREATE TABLE IF NOT EXISTS roulette_statistics (
-					id SERIAL PRIMARY KEY,
-					session_key VARCHAR(255) NOT NULL,
-					total_numbers INTEGER DEFAULT 0,
-					last_number TEXT,
-					last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-					metadata JSONB,
-					UNIQUE(session_key)
-				);
-
-				-- Create index on session_key
-				CREATE INDEX IF NOT EXISTS idx_roulette_statistics_session_key ON roulette_statistics(session_key);
-				CREATE INDEX IF NOT EXISTS idx_roulette_statistics_last_updated ON roulette_statistics(last_updated);
-
-				-- Create system settings table
-				CREATE TABLE IF NOT EXISTS system_settings (
-					id SERIAL PRIMARY KEY,
-					key VARCHAR(255) UNIQUE NOT NULL,
-					value TEXT,
-					description TEXT,
-					created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-					updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-				);
-
-				-- Insert default settings
-				INSERT INTO system_settings (key, value, description) VALUES
-					('max_history_length', '1000', 'Maximum number of numbers to keep in history per session'),
-					('cleanup_interval_hours', '24', 'Hours between automatic cleanup of old sessions'),
-					('session_timeout_days', '30', 'Days after which inactive sessions are deleted')
-				ON CONFLICT (key) DO NOTHING;
-			`,
-			Down: `
-				DROP INDEX IF EXISTS idx_roulette_statistics_last_updated;
-				DROP INDEX IF EXISTS idx_roulette_statistics_session_key;
-				DROP TABLE IF EXISTS system_settings;
-				DROP TABLE IF EXISTS roulette_statistics;
-			`,
+			Description: "Create indexes",
+			Up: `CREATE INDEX IF NOT EXISTS idx_roulette_sessions_key ON roulette_sessions(key);
+			CREATE INDEX IF NOT EXISTS idx_roulette_numbers_session_id ON roulette_numbers(session_id);
+			CREATE INDEX IF NOT EXISTS idx_roulette_numbers_position ON roulette_numbers(session_id, position)`,
+			Down: `DROP INDEX IF EXISTS idx_roulette_numbers_position;
+			DROP INDEX IF EXISTS idx_roulette_numbers_session_id;
+			DROP INDEX IF EXISTS idx_roulette_sessions_key`,
 		},
 		{
 			Version:     4,
-			Description: "Add password field to roulette_sessions",
-			Up: `
-				-- Add password column to roulette_sessions table
-				ALTER TABLE roulette_sessions 
-				ADD COLUMN IF NOT EXISTS password VARCHAR(255);
-
-				-- Create index on password for faster lookups (optional)
-				CREATE INDEX IF NOT EXISTS idx_roulette_sessions_password ON roulette_sessions(password) 
-				WHERE password IS NOT NULL AND password != '';
-			`,
-			Down: `
-				-- Remove index and column
-				DROP INDEX IF EXISTS idx_roulette_sessions_password;
-				ALTER TABLE roulette_sessions DROP COLUMN IF EXISTS password;
-			`,
+			Description: "Add updated_at trigger function",
+			Up: `CREATE OR REPLACE FUNCTION update_updated_at_column()
+			RETURNS TRIGGER AS $$
+			BEGIN
+				NEW.updated_at = NOW();
+				RETURN NEW;
+			END;
+			$$ language 'plpgsql'`,
+			Down: `DROP FUNCTION IF EXISTS update_updated_at_column()`,
+		},
+		{
+			Version:     5,
+			Description: "Add updated_at trigger",
+			Up: `CREATE TRIGGER update_roulette_sessions_updated_at
+				BEFORE UPDATE ON roulette_sessions
+				FOR EACH ROW
+				EXECUTE FUNCTION update_updated_at_column()`,
+			Down: `DROP TRIGGER IF EXISTS update_roulette_sessions_updated_at ON roulette_sessions`,
 		},
 	}
 }
@@ -497,60 +436,32 @@ func generateChecksum(content string) string {
 	return strconv.Itoa(hash)
 }
 
-// splitSQLStatements splits a string containing multiple SQL statements into a slice of strings.
-// It correctly handles comments, string literals, and PostgreSQL's dollar-quoted strings.
+// splitSQLStatements splits SQL by semicolons for simple cases
 func splitSQLStatements(sql string) []string {
+	// Remove comments
+	lines := strings.Split(sql, "\n")
+	var cleanLines []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "--") {
+			cleanLines = append(cleanLines, line)
+		}
+	}
+	cleanSQL := strings.Join(cleanLines, "\n")
+	
+	// Simple split by semicolon
+	parts := strings.Split(cleanSQL, ";")
 	var statements []string
-	var currentStatement strings.Builder
-	inSingleQuotes := false
-	inDollarQuotes := false
-	dollarTag := ""
-
-	re := regexp.MustCompile(`--.*`)
-	sql = re.ReplaceAllString(sql, "")
-	sql = strings.TrimSpace(sql)
-
-	runes := []rune(sql)
-	for i := 0; i < len(runes); {
-		char := runes[i]
-
-		// Handle dollar-quoted strings
-		if !inSingleQuotes && char == '$' {
-			// Find potential tag
-			if tagMatch := regexp.MustCompile(`^\$([a-zA-Z_][a-zA-Z0-9_]*)?\$`).FindString(string(runes[i:])); tagMatch != "" {
-				if !inDollarQuotes {
-					inDollarQuotes = true
-					dollarTag = tagMatch
-				} else if dollarTag == tagMatch {
-					inDollarQuotes = false
-				}
-			}
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			statements = append(statements, part)
 		}
-
-		// Handle single-quoted strings
-		if !inDollarQuotes && char == '\'' {
-			inSingleQuotes = !inSingleQuotes
-		}
-
-		currentStatement.WriteRune(char)
-
-		// End of statement
-		if char == ';' && !inSingleQuotes && !inDollarQuotes {
-			stmt := strings.TrimSpace(currentStatement.String())
-			if len(stmt) > 0 {
-				// Remove trailing semicolon
-				statements = append(statements, strings.TrimRight(stmt, ";"))
-			}
-			currentStatement.Reset()
-		}
-		i++
 	}
-
-	// Add the last statement if it's not empty
-	remaining := strings.TrimSpace(currentStatement.String())
-	if len(remaining) > 0 {
-		statements = append(statements, remaining)
-	}
-
+	
 	return statements
+}
+
+func isWhitespace(r rune) bool {
+	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
 }
