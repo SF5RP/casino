@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,6 +38,7 @@ func (m *MigrationManager) GetMigrations() []Migration {
 				CREATE TABLE IF NOT EXISTS roulette_sessions (
 					id SERIAL PRIMARY KEY,
 					key VARCHAR(255) UNIQUE NOT NULL,
+					password VARCHAR(255),
 					created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 					updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 				);
@@ -66,7 +68,6 @@ func (m *MigrationManager) GetMigrations() []Migration {
 			Version:     2,
 			Description: "Add updated_at trigger for roulette_sessions",
 			Up: `
-				-- Create or replace function to update updated_at column
 				CREATE OR REPLACE FUNCTION update_updated_at_column()
 				RETURNS TRIGGER AS $$
 				BEGIN
@@ -75,8 +76,6 @@ func (m *MigrationManager) GetMigrations() []Migration {
 				END;
 				$$ language 'plpgsql';
 
-				-- Create trigger for roulette_sessions table
-				DROP TRIGGER IF EXISTS update_roulette_sessions_updated_at ON roulette_sessions;
 				CREATE TRIGGER update_roulette_sessions_updated_at
 					BEFORE UPDATE ON roulette_sessions
 					FOR EACH ROW
@@ -418,6 +417,57 @@ func (m *MigrationManager) GetMigrationStatus() (*MigrationStatus, error) {
 	return status, nil
 }
 
+// ResetDatabase drops all tables and resets the migration state.
+// USE WITH CAUTION.
+func (m *MigrationManager) ResetDatabase() error {
+	log.Println("CAUTION: Resetting database. All data will be lost.")
+
+	// Get all tables in the public schema
+	query := `
+		SELECT tablename 
+		FROM pg_tables 
+		WHERE schemaname = 'public'
+	`
+	rows, err := m.db.Query(query)
+	if err != nil {
+		return fmt.Errorf("failed to query tables: %w", err)
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			return fmt.Errorf("failed to scan table name: %w", err)
+		}
+		tables = append(tables, tableName)
+	}
+
+	if len(tables) == 0 {
+		log.Println("No tables found to drop. Database is already empty.")
+		return nil
+	}
+
+	// Drop all tables
+	tx, err := m.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction for dropping tables: %w", err)
+	}
+	defer tx.Rollback()
+
+	for _, table := range tables {
+		log.Printf("Dropping table: %s", table)
+		// CASCADE is important to handle dependencies
+		dropQuery := fmt.Sprintf(`DROP TABLE IF EXISTS %s CASCADE`, table)
+		if _, err := tx.Exec(dropQuery); err != nil {
+			return fmt.Errorf("failed to drop table %s: %w", table, err)
+		}
+	}
+
+	log.Println("All tables dropped successfully.")
+	return tx.Commit()
+}
+
 // MigrationStatus represents the current state of migrations
 type MigrationStatus struct {
 	TotalMigrations   int   `json:"total_migrations"`
@@ -447,96 +497,60 @@ func generateChecksum(content string) string {
 	return strconv.Itoa(hash)
 }
 
-// splitSQLStatements splits SQL content into individual statements
-// This function handles multi-line statements and PostgreSQL dollar-quoted strings
+// splitSQLStatements splits a string containing multiple SQL statements into a slice of strings.
+// It correctly handles comments, string literals, and PostgreSQL's dollar-quoted strings.
 func splitSQLStatements(sql string) []string {
 	var statements []string
-	var current strings.Builder
-	var inDollarQuote bool
-	var dollarTag string
-	
-	// First, handle simple case of multiple statements on one line
-	if !strings.Contains(sql, "\n") && strings.Contains(sql, ";") {
-		parts := strings.Split(sql, ";")
-		for _, part := range parts {
-			part = strings.TrimSpace(part)
-			if part != "" {
-				statements = append(statements, part)
-			}
-		}
-		return statements
-	}
-	
-	lines := strings.Split(sql, "\n")
-	
-	for _, line := range lines {
-		originalLine := line
-		line = strings.TrimSpace(line)
-		
-		// Skip empty lines
-		if line == "" {
-			continue
-		}
-		
-		// Skip comment lines (only if not inside dollar quote)
-		if !inDollarQuote && strings.HasPrefix(line, "--") {
-			continue
-		}
-		
-		// Add line to current statement, preserving relative indentation
-		if current.Len() > 0 {
-			current.WriteString("\n")
-		}
-		
-		// For multi-line statements, preserve some indentation
-		if strings.HasPrefix(originalLine, "\t") || strings.HasPrefix(originalLine, "  ") {
-			// Keep one level of indentation for readability
-			if strings.HasPrefix(originalLine, "\t\t") {
-				current.WriteString("\t")
-			} else if strings.HasPrefix(originalLine, "    ") {
-				current.WriteString("\t")
-			}
-		}
-		current.WriteString(line)
-		
-		// Check for dollar-quoted strings (PostgreSQL function syntax)
-		if !inDollarQuote {
-			// Look for start of dollar quote ($$, $tag$, etc.)
-			if dollarStart := strings.Index(line, "$"); dollarStart != -1 {
-				// Find the end of the dollar tag
-				dollarEnd := strings.Index(line[dollarStart+1:], "$")
-				if dollarEnd != -1 {
-					dollarTag = line[dollarStart : dollarStart+dollarEnd+2]
-					inDollarQuote = true
+	var currentStatement strings.Builder
+	inSingleQuotes := false
+	inDollarQuotes := false
+	dollarTag := ""
+
+	re := regexp.MustCompile(`--.*`)
+	sql = re.ReplaceAllString(sql, "")
+	sql = strings.TrimSpace(sql)
+
+	runes := []rune(sql)
+	for i := 0; i < len(runes); {
+		char := runes[i]
+
+		// Handle dollar-quoted strings
+		if !inSingleQuotes && char == '$' {
+			// Find potential tag
+			if tagMatch := regexp.MustCompile(`^\$([a-zA-Z_][a-zA-Z0-9_]*)?\$`).FindString(string(runes[i:])); tagMatch != "" {
+				if !inDollarQuotes {
+					inDollarQuotes = true
+					dollarTag = tagMatch
+				} else if dollarTag == tagMatch {
+					inDollarQuotes = false
 				}
 			}
-		} else {
-			// Look for end of dollar quote
-			if strings.Contains(line, dollarTag) {
-				inDollarQuote = false
-				dollarTag = ""
+		}
+
+		// Handle single-quoted strings
+		if !inDollarQuotes && char == '\'' {
+			inSingleQuotes = !inSingleQuotes
+		}
+
+		currentStatement.WriteRune(char)
+
+		// End of statement
+		if char == ';' && !inSingleQuotes && !inDollarQuotes {
+			stmt := strings.TrimSpace(currentStatement.String())
+			if len(stmt) > 0 {
+				// Remove trailing semicolon
+				statements = append(statements, strings.TrimRight(stmt, ";"))
 			}
+			currentStatement.Reset()
 		}
-		
-		// Check if statement ends with semicolon (only if not in dollar quote)
-		if !inDollarQuote && strings.HasSuffix(line, ";") {
-			stmt := current.String()
-			stmt = strings.TrimSuffix(stmt, ";")
-			stmt = strings.TrimSpace(stmt)
-			if stmt != "" {
-				statements = append(statements, stmt)
-			}
-			current.Reset()
-		}
+		i++
 	}
-	
-	// Add remaining statement if any
-	if current.Len() > 0 {
-		stmt := strings.TrimSpace(current.String())
-		if stmt != "" {
-			statements = append(statements, stmt)
-		}
+
+	// Add the last statement if it's not empty
+	remaining := strings.TrimSpace(currentStatement.String())
+	if len(remaining) > 0 {
+		statements = append(statements, remaining)
 	}
-	
+
 	return statements
-} 
+}

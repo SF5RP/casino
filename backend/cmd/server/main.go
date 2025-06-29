@@ -37,28 +37,51 @@ func main() {
 	var repo database.RouletteRepositoryInterface
 	db, err := database.Connect()
 	if err != nil {
-		log.Printf("⚠️ Could not connect to database, falling back to in-memory store: %v", err)
+		log.Printf("Failed to connect to PostgreSQL: %v", err)
+		log.Println("Falling back to in-memory storage...")
 		repo = database.NewMemoryRepository()
 	} else {
-		log.Println("✅ Successfully connected to the database")
 		defer db.Close()
+		log.Println("Successfully connected to PostgreSQL")
 
-		// Test database connection
-		if err := db.Ping(); err != nil {
-			log.Printf("Database connection test failed, falling back to in-memory store: %v", err)
+		migrationManager := database.NewMigrationManager(db)
+
+		// Check for command-line arguments
+		if len(os.Args) > 1 {
+			command := os.Args[1]
+			switch command {
+			case "migrate":
+				log.Println("Running database migrations...")
+				if err := migrationManager.MigrateUp(); err != nil {
+					log.Fatalf("Failed to run migrations: %v", err)
+				}
+				log.Println("Migrations completed successfully.")
+				return // Exit after running migrations
+			case "reset-migrations":
+				log.Println("Resetting database...")
+				if err := migrationManager.ResetDatabase(); err != nil {
+					log.Fatalf("Failed to reset database: %v", err)
+				}
+				log.Println("Database reset successfully.")
+				return // Exit after resetting
+			default:
+				log.Printf("Unknown command: %s", command)
+				return
+			}
+		}
+
+		// If no command, run migrations implicitly before starting server
+		if err := migrationManager.MigrateUp(); err != nil {
+			log.Printf("Failed to run database migrations: %v", err)
+			log.Println("Falling back to in-memory storage...")
 			repo = database.NewMemoryRepository()
 		} else {
-			// Run database migrations
-			if err := db.RunMigrations(); err != nil {
-				log.Printf("Failed to run database migrations, falling back to in-memory store: %v", err)
-				repo = database.NewMemoryRepository()
-			} else {
-				log.Println("✅ Database migrations completed successfully")
-				repo = database.NewRouletteRepository(db)
-			}
+			log.Println("Repository initialized: PostgreSQL")
+			repo = database.NewRouletteRepository(db)
 		}
 	}
 
+	// Logging repository info
 	log.Printf("Using repository: %s", repo.Info())
 
 	// Start periodic health check
