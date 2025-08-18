@@ -1,15 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import {
-  Box,
-  Typography,
-  Paper,
-  IconButton,
-  Tooltip,
-  useMediaQuery,
-  useTheme,
-} from "@mui/material";
+import { Box, Typography, Paper, IconButton, Tooltip } from "@mui/material";
 import { Casino, Refresh, Help, ArrowBack } from "@mui/icons-material";
 import {
   DragDropContext,
@@ -36,8 +28,6 @@ interface DraggableImage {
 }
 
 const MEMORY_GAME_PAGE = () => {
-  const theme = useTheme();
-  const isMdDown = useMediaQuery(theme.breakpoints.down("md"));
   const [gameBoard, setGameBoard] = useState<CardItem[][]>([]);
   const [draggableImages, setDraggableImages] = useState<DraggableImage[]>([]);
   const [isGameStarted, setIsGameStarted] = useState(false);
