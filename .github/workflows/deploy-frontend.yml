@@ -265,19 +265,14 @@ jobs:
           rm -f ~/casino-frontend-deploy.tar.gz
           EOF
 
-      - name: Health check
+      - name: Health check (remote)
         env:
           DEPLOY_PORT: ${{ secrets.FRONTEND_PORT || '3000' }}
         run: |
-          echo "🏥 Running frontend health check..."
-          sleep 20
-
-          if curl -fsS http://${{ secrets.SERVER_HOST }}:${DEPLOY_PORT}/ >/dev/null; then
-            echo "✅ Frontend health check passed!"
-          else
-            echo "❌ Frontend health check failed!"
-            exit 1
-          fi
+          echo "🏥 Running frontend health check on the server..."
+          ssh -o StrictHostKeyChecking=no -p ${{ secrets.SSH_PORT || '22' }} \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              "ATTEMPTS=10; for i in $(seq 1 $ATTEMPTS); do if curl -fsS -m 10 http://127.0.0.1:${DEPLOY_PORT}/ >/dev/null; then echo '✅ Remote HTTP health check passed'; exit 0; fi; echo '⏳ Waiting for app to become ready ('$i'/'$ATTEMPTS')...'; sleep 5; done; echo '❌ Remote HTTP health check failed after '$ATTEMPTS' attempts'; pm2 logs casino-frontend --lines 50 || true; exit 1"
 
       - name: Deployment summary
         if: always()
