@@ -26,8 +26,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
-    name: Build and Deploy Frontend
+  build:
+    name: Build Frontend
     runs-on: ubuntu-latest
 
     steps:
@@ -77,36 +77,50 @@ jobs:
           echo "✅ Build output verified - .next directory exists"
           ls -la .next/
 
-      - name: Prepare deployment files
-        working-directory: frontend
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            frontend/.next
+            frontend/public
+            frontend/package.json
+            frontend/package-lock.json
+            frontend/next.config.ts
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: frontend/deploy_package
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: "just-a-placeholder"
+
+      - name: Deploy and restart frontend
+        env:
+          DEPLOY_PORT: ${{ secrets.FRONTEND_PORT || '3000' }}
         run: |
-          mkdir deploy_package
+          echo "🚀 Deploying frontend to production environment..."
+          echo "📍 Server: ${{ secrets.SERVER_HOST }}"
+          echo "👤 User: ${{ secrets.SERVER_USER }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "📝 Commit: ${{ github.sha }}"
 
-          # Copy built application (most important!)
-          cp -r .next deploy_package/
-          echo "✅ Copied .next directory"
-
-          # Copy public directory
-          if [ -d "public" ]; then
-            cp -r public deploy_package/
-          else
-            mkdir deploy_package/public
-          fi
-
-          # Copy node_modules (runtime deps for 'next start')
-          cp -r node_modules deploy_package/
-
-          # Copy configuration files
-          cp package.json deploy_package/
-          cp package-lock.json deploy_package/
-          cp next.config.ts deploy_package/
-
-          if [ -f "tsconfig.json" ]; then
-            cp tsconfig.json deploy_package/
-          fi
-
-          # Create production start script (no build on server)
-          cat > deploy_package/start-prod.js << 'EOF'
+          cd frontend/deploy_package
+          # Ensure start-prod.js exists (create if missing in artifact)
+          if [ ! -f "start-prod.js" ]; then
+            cat > start-prod.js << 'EOF'
           const { spawn } = require('child_process');
           console.log('🚀 Starting Next.js production server...');
           const port = process.env.PORT || 3000;
@@ -119,20 +133,11 @@ jobs:
           process.on('SIGINT', () => { console.log('Received SIGINT, stopping Next.js...'); nextApp.kill('SIGINT'); });
           process.on('SIGTERM', () => { console.log('Received SIGTERM, stopping Next.js...'); nextApp.kill('SIGTERM'); });
           EOF
-
-          # Create config.js if needed
-          if [ ! -f "config.js" ]; then
-            cat > deploy_package/config.js << 'EOF'
-          const config = {
-            APP_PORT: process.env.PORT || 3000,
-            NODE_ENV: process.env.NODE_ENV || 'production'
-          };
-          module.exports = config;
-          EOF
           fi
 
-          # Create PM2 ecosystem config template (PORT is read from environment)
-          cat > deploy_package/ecosystem.config.template.js << 'EOF'
+          # Create PM2 ecosystem config template if missing
+          if [ ! -f "ecosystem.config.template.js" ]; then
+            cat > ecosystem.config.template.js << 'EOF'
           module.exports = {
             apps: [{
               name: 'casino-frontend',
@@ -157,38 +162,17 @@ jobs:
             }]
           };
           EOF
+          fi
 
-          # Verify deployment package contents
-          echo "📦 Deployment package contents:"
-          ls -la deploy_package/
-          echo "📁 .next directory in package:"
-          ls -la deploy_package/.next/ | head -10
+          cd -
 
-      - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          known_hosts: "just-a-placeholder"
-
-      - name: Deploy and restart frontend
-        env:
-          DEPLOY_PORT: ${{ secrets.FRONTEND_PORT || '3000' }}
-        run: |
-          echo "🚀 Deploying frontend to production environment..."
-          echo "📍 Server: ${{ secrets.SERVER_HOST }}"
-          echo "👤 User: ${{ secrets.SERVER_USER }}"
-          echo "🌿 Branch: ${{ github.ref_name }}"
-          echo "📝 Commit: ${{ github.sha }}"
-
-          cd frontend/deploy_package
-          tar -czf ../casino-frontend-deploy.tar.gz .
-          cd ..
+          # Package artifact for transfer
+          tar -czf casino-frontend-deploy.tar.gz -C frontend/deploy_package .
 
           scp -o StrictHostKeyChecking=no -P ${{ secrets.SSH_PORT || '22' }} \
               casino-frontend-deploy.tar.gz \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/
 
-          # Pass PORT into remote shell, keep script content literal
           ssh -o StrictHostKeyChecking=no -p ${{ secrets.SSH_PORT || '22' }} \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
               "export PORT=${DEPLOY_PORT}; bash -s" << 'EOF'
@@ -200,65 +184,6 @@ jobs:
             pm2 delete casino-frontend || true
           else
             echo "Process casino-frontend not found, skipping stop"
-          fi
-
-          # If port still in use, try to free it gently
-          if command -v ss >/dev/null 2>&1 && ss -ltnp | grep -q ":${PORT}"; then
-            echo "⚠️  Port ${PORT} in use. Attempting to free..."
-            if command -v fuser >/dev/null 2>&1; then
-              sudo -n fuser -k ${PORT}/tcp || true
-            fi
-            sleep 2
-          fi
-
-          # Additional port cleanup using lsof and ss PID parsing
-          if command -v lsof >/dev/null 2>&1; then
-            PIDS=$(sudo -n lsof -t -i TCP:${PORT} -sTCP:LISTEN || true)
-            if [ -n "$PIDS" ]; then
-              echo "⚠️  lsof found PIDs on port ${PORT}: $PIDS. Terminating..."
-              sudo -n kill $PIDS || true
-              sleep 2
-              for p in $PIDS; do
-                if kill -0 $p 2>/dev/null; then
-                  sudo -n kill -9 $p || true
-                fi
-              done
-            fi
-          fi
-
-          if command -v ss >/dev/null 2>&1; then
-            SS_PIDS=$(ss -ltnp | awk -v port="${PORT}" '$4 ~ ":"port"$" {print $NF}' | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | sort -u)
-            if [ -n "$SS_PIDS" ]; then
-              echo "⚠️  ss found PIDs on port ${PORT}: $SS_PIDS. Terminating..."
-              sudo -n kill $SS_PIDS || true
-              sleep 2
-              for p in $SS_PIDS; do
-                if kill -0 $p 2>/dev/null; then
-                  sudo -n kill -9 $p || true
-                fi
-              done
-            fi
-          fi
-
-          # Wait until the port is free (up to ~20s)
-          CHECKS=10
-          for i in $(seq 1 $CHECKS); do
-            PORT_BUSY=0
-            if command -v ss >/dev/null 2>&1; then
-              if ss -ltnp | grep -q ":${PORT} "; then PORT_BUSY=1; fi
-            elif command -v lsof >/dev/null 2>&1; then
-              if lsof -i TCP:${PORT} -sTCP:LISTEN >/dev/null 2>&1; then PORT_BUSY=1; fi
-            fi
-            if [ $PORT_BUSY -eq 0 ]; then
-              echo "✅ Port ${PORT} appears free"
-              break
-            fi
-            echo "⏳ Port ${PORT} still busy, waiting ($i/$CHECKS)..."
-            sleep 2
-          done
-          if command -v ss >/dev/null 2>&1 && ss -ltnp | grep -q ":${PORT} "; then
-            echo "❌ Port ${PORT} is still busy after waiting. Aborting deploy."
-            exit 1
           fi
 
           echo "📦 Extracting deployment package..."
@@ -273,27 +198,14 @@ jobs:
           echo "📁 Setting up frontend directory..."
           cd casino-frontend
 
-          # Verify .next exists after extraction
           if [ ! -d ".next" ]; then
             echo "❌ ERROR: .next directory not found after extraction!"
-            echo "Contents of casino-frontend directory:"
             ls -la
             exit 1
           fi
           echo "✅ .next directory verified on server"
 
-          # .env.production is optional when building in CI (public envs baked at build time)
-          if [ ! -f ".env.production" ]; then
-            echo "⚠️  NOTE: .env.production not found. Public envs were embedded during CI build."
-            echo "📖 For server-side env overrides, you can create .env.production and restart."
-          else
-            echo "✅ .env.production found - will be available to runtime"
-          fi
-
-          # Copy template to final config
-          cp ecosystem.config.template.js ecosystem.config.js
-
-          # Create logs directory
+          cp ecosystem.config.template.js ecosystem.config.js || true
           sudo mkdir -p /var/log/pm2
           sudo chown -R $USER:$USER /var/log/pm2
 
@@ -305,7 +217,6 @@ jobs:
           sleep 15
           if pm2 list | grep -q "casino-frontend.*online"; then
             echo "✅ Frontend deployment successful!"
-            pm2 status casino-frontend
           else
             echo "❌ Frontend deployment failed!"
             pm2 logs casino-frontend --lines 50
