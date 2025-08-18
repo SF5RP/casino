@@ -400,7 +400,8 @@ const MEMORY_GAME_PAGE = () => {
     <Box
       sx={{
         p: { xs: 1, sm: 2, lg: 3 },
-        maxWidth: "1400px",
+        // Убираем ограничение maxWidth для ПК
+        maxWidth: { xs: "100%", sm: "100%", md: "100%", lg: "100%" },
         margin: "0 auto",
         width: "100%",
         minHeight: "100vh",
@@ -417,11 +418,17 @@ const MEMORY_GAME_PAGE = () => {
         }}
       >
         <Casino
-          sx={{ fontSize: { xs: 24, sm: 28, lg: 32 }, color: "primary.main" }}
+          sx={{
+            fontSize: { xs: 24, sm: 28, md: 30, lg: 32, xl: 34 },
+            color: "primary.main",
+          }}
         />
         <Typography
           component="h1"
-          sx={{ fontWeight: 600, fontSize: { xs: 18, sm: 20, md: 24, lg: 28 } }}
+          sx={{
+            fontWeight: 600,
+            fontSize: { xs: 18, sm: 20, md: 24, lg: 28, xl: 32 },
+          }}
         >
           Игра &quot;Найди пару&quot;
         </Typography>
@@ -430,7 +437,7 @@ const MEMORY_GAME_PAGE = () => {
             onClick={startNewGame}
             color="primary"
             size="medium"
-            sx={{ fontSize: { xs: 20, md: 24 } }}
+            sx={{ fontSize: { xs: 20, md: 24, lg: 28, xl: 30 } }}
           >
             <Refresh />
           </IconButton>
@@ -468,7 +475,9 @@ const MEMORY_GAME_PAGE = () => {
           sx={{
             flex: {
               xs: "none",
-              md: "1 1 640px",
+              md: "1 1 720px", // Увеличено с 640px для ПК, но не слишком много
+              lg: "1 1 800px", // Еще больше для больших экранов
+              xl: "1 1 1200px", // Максимальный размер 1200px для очень больших экранов
               // Landscape планшеты
               "@media (orientation: landscape) and (max-width: 1024px)": {
                 flex: "1 1 auto",
@@ -483,7 +492,13 @@ const MEMORY_GAME_PAGE = () => {
                 width: "60vw",
               },
             },
-            maxWidth: { xs: "100%", sm: "80vw", md: "none" },
+            maxWidth: {
+              xs: "100%",
+              sm: "80vw",
+              md: "none",
+              lg: "1200px",
+              xl: "1200px",
+            },
             p: { xs: 0.5, sm: 1, md: 2 },
             order: { xs: 1, md: 1 },
           }}
@@ -494,7 +509,7 @@ const MEMORY_GAME_PAGE = () => {
             sx={{
               mb: { xs: 1, sm: 1.5, md: 2 },
               textAlign: "center",
-              fontSize: { xs: 14, sm: 16, md: 18 },
+              fontSize: { xs: 14, sm: 16, md: 20, lg: 22, xl: 24 },
             }}
           >
             Игровое поле
@@ -515,6 +530,8 @@ const MEMORY_GAME_PAGE = () => {
                 xs: "100%",
                 sm: "min(100%, 70vh)",
                 md: "min(100%, calc((100vh - 240px) * 1.6667))",
+                lg: "min(100%, 1200px)",
+                xl: "min(100%, 1200px)",
                 // Landscape планшеты
                 "@media (orientation: landscape) and (max-width: 1024px)": {
                   width: "100%",
@@ -601,8 +618,8 @@ const MEMORY_GAME_PAGE = () => {
                         backgroundColor: "rgba(255, 0, 0, 0.8)",
                         color: "white",
                         borderRadius: "50%",
-                        width: 24,
-                        height: 24,
+                        width: { xs: 24, sm: 26, md: 30, lg: 34, xl: 38 }, // Увеличиваем для соответствия картинкам
+                        height: { xs: 24, sm: 26, md: 30, lg: 34, xl: 38 }, // Увеличиваем для соответствия картинкам
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -613,7 +630,12 @@ const MEMORY_GAME_PAGE = () => {
                         },
                       }}
                     >
-                      <Delete sx={{ fontSize: 16 }} />
+                      <Delete
+                        sx={{
+                          fontSize: { xs: 16, sm: 17, md: 18, lg: 20, xl: 22 },
+                        }}
+                      />{" "}
+                      {/* Увеличиваем для ПК */}
                     </Box>
                   )}
                 </Box>
@@ -629,8 +651,9 @@ const MEMORY_GAME_PAGE = () => {
             width: {
               xs: "100%",
               sm: "100%",
-              md: 380,
-              lg: 420,
+              md: 600, // Увеличиваем для соответствия размеру игрового поля
+              lg: 720, // Пропорционально увеличиваем для больших экранов
+              xl: 840, // Пропорционально увеличиваем для очень больших экранов
               // Landscape планшеты - увеличиваем ширину
               "@media (orientation: landscape) and (max-width: 1024px)": {
                 width: "40vw",
@@ -650,7 +673,7 @@ const MEMORY_GAME_PAGE = () => {
             sx={{
               mb: { xs: 1, sm: 1.5, md: 2 },
               textAlign: "center",
-              fontSize: { xs: 14, sm: 16, md: 18 },
+              fontSize: { xs: 14, sm: 16, md: 20, lg: 22, xl: 24 },
             }}
           >
             Перетащите на поле
@@ -661,8 +684,9 @@ const MEMORY_GAME_PAGE = () => {
               gridTemplateColumns: {
                 xs: "repeat(4, 1fr)", // Уменьшено с 6 до 4 для увеличения размера
                 sm: "repeat(5, 1fr)", // Уменьшено с 8 до 5
-                md: "repeat(5, 1fr)", // Уменьшено с 6 до 5
-                lg: "repeat(6, 1fr)",
+                md: "repeat(6, 1fr)", // Возвращаем 6 картинок в ряд для ПК
+                lg: "repeat(6, 1fr)", // 6 картинок в ряд для больших экранов
+                xl: "repeat(6, 1fr)", // 6 картинок в ряд для очень больших экранов
                 // Landscape планшеты
                 "@media (orientation: landscape) and (max-width: 1024px)": {
                   gridTemplateColumns: "repeat(3, 1fr)", // Еще меньше для landscape
@@ -671,8 +695,9 @@ const MEMORY_GAME_PAGE = () => {
               gap: {
                 xs: 0.75, // Увеличено для лучшего touch target
                 sm: 1,
-                md: 1.25,
-                lg: 1.5,
+                md: 1.5, // Увеличено для ПК
+                lg: 2, // Еще больше для больших экранов
+                xl: 2.5, // Максимальный gap для очень больших экранов
               },
               // Убираем все ограничения по высоте и скроллу
               width: "100%",
@@ -763,12 +788,18 @@ const MEMORY_GAME_PAGE = () => {
                     backgroundColor: "rgba(0, 0, 0, 0.7)",
                     color: "white",
                     borderRadius: "50%",
-                    width: 20,
-                    height: 20,
+                    width: { xs: 20, sm: 22, md: 26, lg: 30, xl: 34 }, // Увеличиваем для соответствия картинкам
+                    height: { xs: 20, sm: 22, md: 26, lg: 30, xl: 34 }, // Увеличиваем для соответствия картинкам
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "12px",
+                    fontSize: {
+                      xs: "12px",
+                      sm: "13px",
+                      md: "16px",
+                      lg: "18px",
+                      xl: "20px",
+                    }, // Увеличиваем шрифт для соответствия картинкам
                     fontWeight: "bold",
                     pointerEvents: "none",
                   }}
@@ -788,8 +819,8 @@ const MEMORY_GAME_PAGE = () => {
             position: "fixed",
             left: dragPosition.x - 28, // Немного сдвигаем для лучшей точности
             top: dragPosition.y - 28,
-            width: 56, // Слегка уменьшено для touch точности
-            height: 56,
+            width: { xs: 56, sm: 64, md: 80, lg: 96, xl: 112 }, // Увеличиваем размер для соответствия картинкам
+            height: { xs: 56, sm: 64, md: 80, lg: 96, xl: 112 }, // Увеличиваем размер для соответствия картинкам
             border: "2px solid",
             borderColor: "primary.main",
             borderRadius: 1,
@@ -825,12 +856,18 @@ const MEMORY_GAME_PAGE = () => {
               backgroundColor: "rgba(0, 0, 0, 0.8)",
               color: "white",
               borderRadius: "50%",
-              width: 18, // Увеличено для лучшей видимости
-              height: 18,
+              width: { xs: 18, sm: 20, md: 24, lg: 28, xl: 32 }, // Увеличиваем для соответствия картинкам
+              height: { xs: 18, sm: 20, md: 24, lg: 28, xl: 32 }, // Увеличиваем для соответствия картинкам
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "11px",
+              fontSize: {
+                xs: "11px",
+                sm: "12px",
+                md: "16px",
+                lg: "18px",
+                xl: "20px",
+              }, // Увеличиваем шрифт для соответствия картинкам
               fontWeight: "bold",
             }}
           >
