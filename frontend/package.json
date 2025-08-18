@@ -13,7 +13,8 @@
     "docker:build": "docker build -t roulette-app .",
     "docker:run": "docker run -p 3000:3000 -p 3002:3002 roulette-app",
     "docker:compose": "docker-compose up -d",
-    "docker:compose:build": "docker-compose up --build -d"
+    "docker:compose:build": "docker-compose up --build -d",
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",
