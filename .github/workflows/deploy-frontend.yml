@@ -211,6 +211,56 @@ jobs:
             sleep 2
           fi
 
+          # Additional port cleanup using lsof and ss PID parsing
+          if command -v lsof >/dev/null 2>&1; then
+            PIDS=$(sudo -n lsof -t -i TCP:${PORT} -sTCP:LISTEN || true)
+            if [ -n "$PIDS" ]; then
+              echo "⚠️  lsof found PIDs on port ${PORT}: $PIDS. Terminating..."
+              sudo -n kill $PIDS || true
+              sleep 2
+              for p in $PIDS; do
+                if kill -0 $p 2>/dev/null; then
+                  sudo -n kill -9 $p || true
+                fi
+              done
+            fi
+          fi
+
+          if command -v ss >/dev/null 2>&1; then
+            SS_PIDS=$(ss -ltnp | awk -v port="${PORT}" '$4 ~ ":"port"$" {print $NF}' | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | sort -u)
+            if [ -n "$SS_PIDS" ]; then
+              echo "⚠️  ss found PIDs on port ${PORT}: $SS_PIDS. Terminating..."
+              sudo -n kill $SS_PIDS || true
+              sleep 2
+              for p in $SS_PIDS; do
+                if kill -0 $p 2>/dev/null; then
+                  sudo -n kill -9 $p || true
+                fi
+              done
+            fi
+          fi
+
+          # Wait until the port is free (up to ~20s)
+          CHECKS=10
+          for i in $(seq 1 $CHECKS); do
+            PORT_BUSY=0
+            if command -v ss >/dev/null 2>&1; then
+              if ss -ltnp | grep -q ":${PORT} "; then PORT_BUSY=1; fi
+            elif command -v lsof >/dev/null 2>&1; then
+              if lsof -i TCP:${PORT} -sTCP:LISTEN >/dev/null 2>&1; then PORT_BUSY=1; fi
+            fi
+            if [ $PORT_BUSY -eq 0 ]; then
+              echo "✅ Port ${PORT} appears free"
+              break
+            fi
+            echo "⏳ Port ${PORT} still busy, waiting ($i/$CHECKS)..."
+            sleep 2
+          done
+          if command -v ss >/dev/null 2>&1 && ss -ltnp | grep -q ":${PORT} "; then
+            echo "❌ Port ${PORT} is still busy after waiting. Aborting deploy."
+            exit 1
+          fi
+
           echo "📦 Extracting deployment package..."
           rm -rf casino-frontend-backup
           if [ -d "casino-frontend" ]; then
