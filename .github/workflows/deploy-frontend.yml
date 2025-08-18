@@ -67,60 +67,22 @@ jobs:
           NEXT_PUBLIC_WS_URL: ${{ secrets.FRONTEND_WS_URL || '/ws' }}
         run: npm run build
 
-      - name: Verify build output
+      - name: Prepare deployment package
         working-directory: frontend
         run: |
+          set -e
           if [ ! -d ".next" ]; then
             echo "❌ .next directory not found! Build failed."
             exit 1
           fi
-          echo "✅ Build output verified - .next directory exists"
-          ls -la .next/
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: |
-            frontend/.next
-            frontend/public
-            frontend/package.json
-            frontend/package-lock.json
-            frontend/next.config.ts
-          if-no-files-found: error
-          retention-days: 7
-
-  deploy:
-    name: Deploy Frontend
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: build-output
-          path: frontend/deploy_package
-
-      - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          known_hosts: "just-a-placeholder"
-
-      - name: Deploy and restart frontend
-        env:
-          DEPLOY_PORT: ${{ secrets.FRONTEND_PORT || '3000' }}
-        run: |
-          echo "🚀 Deploying frontend to production environment..."
-          echo "📍 Server: ${{ secrets.SERVER_HOST }}"
-          echo "👤 User: ${{ secrets.SERVER_USER }}"
-          echo "🌿 Branch: ${{ github.ref_name }}"
-          echo "📝 Commit: ${{ github.sha }}"
-
-          cd frontend/deploy_package
-          # Ensure start-prod.js exists (create if missing in artifact)
-          if [ ! -f "start-prod.js" ]; then
-            cat > start-prod.js << 'EOF'
+          mkdir -p deploy_package
+          cp -r .next deploy_package/
+          cp -r public deploy_package/ || mkdir -p deploy_package/public
+          # Include runtime dependencies to avoid server-side install
+          cp -r node_modules deploy_package/
+          cp package.json package-lock.json next.config.ts deploy_package/
+          # Create start-prod.js
+          cat > deploy_package/start-prod.js << 'EOF'
           const { spawn } = require('child_process');
           console.log('🚀 Starting Next.js production server...');
           const port = process.env.PORT || 3000;
@@ -133,11 +95,8 @@ jobs:
           process.on('SIGINT', () => { console.log('Received SIGINT, stopping Next.js...'); nextApp.kill('SIGINT'); });
           process.on('SIGTERM', () => { console.log('Received SIGTERM, stopping Next.js...'); nextApp.kill('SIGTERM'); });
           EOF
-          fi
-
-          # Create PM2 ecosystem config template if missing
-          if [ ! -f "ecosystem.config.template.js" ]; then
-            cat > ecosystem.config.template.js << 'EOF'
+          # Create PM2 ecosystem template
+          cat > deploy_package/ecosystem.config.template.js << 'EOF'
           module.exports = {
             apps: [{
               name: 'casino-frontend',
@@ -162,13 +121,45 @@ jobs:
             }]
           };
           EOF
-          fi
+          # Create tarball
+          tar -czf casino-frontend-deploy.tar.gz -C deploy_package .
 
-          cd -
+      - name: Upload build artifact (tarball)
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: frontend/casino-frontend-deploy.tar.gz
+          if-no-files-found: error
+          retention-days: 7
 
-          # Package artifact for transfer
-          tar -czf casino-frontend-deploy.tar.gz -C frontend/deploy_package .
+  deploy:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: .
 
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: "just-a-placeholder"
+
+      - name: Deploy and restart frontend
+        env:
+          DEPLOY_PORT: ${{ secrets.FRONTEND_PORT || '3000' }}
+        run: |
+          echo "🚀 Deploying frontend to production environment..."
+          echo "📍 Server: ${{ secrets.SERVER_HOST }}"
+          echo "👤 User: ${{ secrets.SERVER_USER }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "📝 Commit: ${{ github.sha }}"
+
+          # Transfer pre-built tarball
           scp -o StrictHostKeyChecking=no -P ${{ secrets.SSH_PORT || '22' }} \
               casino-frontend-deploy.tar.gz \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/
