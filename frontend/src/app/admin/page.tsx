@@ -261,15 +261,6 @@ export default function AdminPage() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Админ-панель Casino Roulette
           </Typography>
-          <Box sx={{ display: "flex", gap: 2, mr: 2 }}>
-            <Button
-              color="inherit"
-              href="/admin/memory-game"
-              sx={{ color: "white" }}
-            >
-              🎮 Игра &quot;Найди пару&quot;
-            </Button>
-          </Box>
           <Button
             color="inherit"
             onClick={logout}
