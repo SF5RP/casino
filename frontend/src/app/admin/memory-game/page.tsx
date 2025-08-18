@@ -4,10 +4,11 @@ import { useState, useCallback, useEffect } from "react";
 import {
   Box,
   Typography,
-  Grid,
   Paper,
   IconButton,
   Tooltip,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { Casino, Refresh, Help, ArrowBack } from "@mui/icons-material";
 import {
@@ -35,6 +36,8 @@ interface DraggableImage {
 }
 
 const MEMORY_GAME_PAGE = () => {
+  const theme = useTheme();
+  const isMdDown = useMediaQuery(theme.breakpoints.down("md"));
   const [gameBoard, setGameBoard] = useState<CardItem[][]>([]);
   const [draggableImages, setDraggableImages] = useState<DraggableImage[]>([]);
   const [isGameStarted, setIsGameStarted] = useState(false);
@@ -238,10 +241,20 @@ const MEMORY_GAME_PAGE = () => {
   }, [startNewGame]);
 
   return (
-    <Box sx={{ p: 3, maxWidth: "1400px", margin: "0 auto" }}>
+    <Box
+      sx={{
+        p: { xs: 2, md: 3 },
+        maxWidth: "1400px",
+        margin: "0 auto",
+        width: "100%",
+      }}
+    >
       <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 2 }}>
         <Casino sx={{ fontSize: 32, color: "primary.main" }} />
-        <Typography variant="h4" component="h1">
+        <Typography
+          component="h1"
+          sx={{ fontWeight: 600, fontSize: { xs: 20, sm: 24, md: 28 } }}
+        >
           Игра &quot;Найди пару&quot; - Помогатор
         </Typography>
         <Tooltip title="Начать новую игру">
@@ -265,106 +278,112 @@ const MEMORY_GAME_PAGE = () => {
         <Box
           sx={{
             display: "flex",
-            gap: 3,
+            gap: 2,
             flexWrap: "wrap",
-            alignItems: "flex-start",
+            alignItems: "stretch",
+            justifyContent: "center",
           }}
         >
           {/* Игровое поле 10x6 */}
           <Paper
             sx={{
-              flex: 2,
-              minWidth: "800px",
-              maxWidth: "calc(100% - 200px)",
+              flex: "1 1 640px",
+              width: { xs: "100%", md: "auto" },
+              p: { xs: 1, md: 2 },
             }}
           >
             <Typography variant="h6" sx={{ mb: 2, textAlign: "center" }}>
               Игровое поле
             </Typography>
-            <Grid container spacing={1}>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(10, 1fr)",
+                gap: 0.5,
+                width: {
+                  xs: "100%",
+                  md: "min(100%, calc((100vh - 240px) * 1.6667))",
+                },
+                mx: "auto",
+              }}
+            >
               {gameBoard.map((row, rowIndex) =>
                 row.map((cell, colIndex) => (
-                  <Grid item xs={1.2} key={cell.id}>
-                    <Droppable
-                      droppableId={`cell-${rowIndex}-${colIndex}`}
-                      isDropDisabled={false}
-                      isCombineEnabled={false}
-                      ignoreContainerClipping={false}
-                    >
-                      {(provided, snapshot) => (
-                        <Box
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          sx={{
-                            width: "100%",
-                            height: "100%",
-                            minWidth: 80,
-                            minHeight: 80,
-                            maxWidth: 80,
-                            maxHeight: 80,
-                            border: "2px solid",
-                            borderColor: cell.isMatched
-                              ? "success.main"
-                              : cell.isPlaced && cell.isFlipped
-                              ? "primary.main"
-                              : snapshot.isDraggingOver
-                              ? "warning.main"
-                              : "grey.300",
-                            borderRadius: 1,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            backgroundColor: cell.isMatched
-                              ? "success.light"
-                              : cell.isPlaced && cell.isFlipped
-                              ? "primary.light"
-                              : snapshot.isDraggingOver
-                              ? "warning.light"
-                              : "grey.100",
-                            cursor: cell.isPlaced ? "pointer" : "default",
-                            transition: "all 0.2s",
-                            "&:hover": cell.isPlaced
-                              ? {
-                                  transform: "scale(1.05)",
-                                  boxShadow: 2,
-                                }
-                              : {},
-                            ...(snapshot.isDraggingOver && {
-                              backgroundColor: "warning.light",
-                              borderColor: "warning.main",
-                              transform: "scale(1.1)",
-                            }),
-                          }}
-                          onClick={() => handleCellClick(rowIndex, colIndex)}
-                        >
-                          {cell.image && (
-                            <Box
-                              component="img"
-                              src={cell.image}
-                              alt="card"
-                              sx={{
-                                width: "100%",
-                                height: "100%",
-                                maxWidth: 60,
-                                maxHeight: 60,
-                                objectFit: "cover",
-                                borderRadius: 0.5,
-                                opacity: cell.isFlipped ? 1 : 0.3,
-                              }}
-                            />
-                          )}
-                          {provided.placeholder}
-                        </Box>
-                      )}
-                    </Droppable>
-                  </Grid>
+                  <Droppable
+                    key={cell.id}
+                    droppableId={`cell-${rowIndex}-${colIndex}`}
+                    isDropDisabled={false}
+                    isCombineEnabled={false}
+                    ignoreContainerClipping={false}
+                  >
+                    {(provided, snapshot) => (
+                      <Box
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        sx={{
+                          position: "relative",
+                          width: "100%",
+                          aspectRatio: "1 / 1",
+                          border: "2px solid",
+                          borderColor: cell.isMatched
+                            ? "success.main"
+                            : cell.isPlaced && cell.isFlipped
+                            ? "primary.main"
+                            : snapshot.isDraggingOver
+                            ? "warning.main"
+                            : "grey.300",
+                          borderRadius: 1,
+                          backgroundColor: cell.isMatched
+                            ? "success.light"
+                            : cell.isPlaced && cell.isFlipped
+                            ? "primary.light"
+                            : snapshot.isDraggingOver
+                            ? "warning.light"
+                            : "grey.100",
+                          cursor: cell.isPlaced ? "pointer" : "default",
+                          transition: "transform 0.2s, box-shadow 0.2s",
+                          "&:hover": cell.isPlaced
+                            ? {
+                                transform: "scale(1.02)",
+                                boxShadow: 2,
+                              }
+                            : {},
+                          ...(snapshot.isDraggingOver && {
+                            backgroundColor: "warning.light",
+                            borderColor: "warning.main",
+                            transform: "scale(1.04)",
+                          }),
+                        }}
+                        onClick={() => handleCellClick(rowIndex, colIndex)}
+                      >
+                        {cell.image && (
+                          <Box
+                            component="img"
+                            src={cell.image}
+                            alt="card"
+                            sx={{
+                              position: "absolute",
+                              inset: 4,
+                              width: "calc(100% - 8px)",
+                              height: "calc(100% - 8px)",
+                              objectFit: "cover",
+                              borderRadius: 0.5,
+                              opacity: cell.isFlipped ? 1 : 0.3,
+                              pointerEvents: "none",
+                            }}
+                          />
+                        )}
+                        {provided.placeholder}
+                      </Box>
+                    )}
+                  </Droppable>
                 ))
               )}
-            </Grid>
+            </Box>
           </Paper>
 
           {/* Панель с картинками для перетаскивания */}
-          <Paper sx={{ p: 2, width: "500px" }}>
+          <Paper sx={{ p: 2, width: { xs: "100%", md: 340, lg: 400 } }}>
             <Typography variant="h6" sx={{ mb: 2, textAlign: "center" }}>
               Перетащите на поле
             </Typography>
@@ -380,9 +399,12 @@ const MEMORY_GAME_PAGE = () => {
                   {...provided.droppableProps}
                   sx={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(6, 1fr)",
+                    gridTemplateColumns: {
+                      xs: "repeat(3, 1fr)",
+                      sm: "repeat(4, 1fr)",
+                      md: "repeat(6, 1fr)",
+                    },
                     gap: 1,
-                    minHeight: "500px",
                     maxWidth: "100%",
                     overflow: "hidden",
                   }}
@@ -401,9 +423,7 @@ const MEMORY_GAME_PAGE = () => {
                           {...provided.dragHandleProps}
                           sx={{
                             width: "100%",
-                            height: "100%",
-                            maxWidth: 120,
-                            maxHeight: 120,
+                            aspectRatio: "1 / 1",
                             border: "2px solid",
                             borderColor:
                               image.usageCount >= image.maxUsage
@@ -423,16 +443,15 @@ const MEMORY_GAME_PAGE = () => {
                               image.usageCount >= image.maxUsage
                                 ? "not-allowed"
                                 : "grab",
-                            transition: "all 0.2s",
+                            transition: "transform 0.2s, box-shadow 0.2s",
                             position: "relative",
                             "&:hover":
                               image.usageCount < image.maxUsage
                                 ? {
-                                    transform: "scale(1.05)",
+                                    transform: "scale(1.02)",
                                     boxShadow: 3,
                                   }
                                 : {},
-                            // Делаем картинки статичными - они не двигаются при перетаскивании
                             transform: snapshot.isDragging ? "none" : "none",
                           }}
                         >
@@ -444,10 +463,10 @@ const MEMORY_GAME_PAGE = () => {
                               e.currentTarget.src = image.fallbackImage;
                             }}
                             sx={{
-                              width: "100%",
-                              height: "100%",
-                              maxWidth: 100,
-                              maxHeight: 100,
+                              position: "absolute",
+                              inset: 4,
+                              width: "calc(100% - 8px)",
+                              height: "calc(100% - 8px)",
                               objectFit: "cover",
                               borderRadius: 0.5,
                               pointerEvents: "none",
@@ -486,7 +505,9 @@ const MEMORY_GAME_PAGE = () => {
       </DragDropContext>
 
       {/* Инструкции по игре */}
-      <Paper sx={{ p: 2, mt: 3 }}>
+      <Paper
+        sx={{ p: 2, mt: 3, display: { xs: "none", sm: "none", md: "block" } }}
+      >
         <Typography variant="h6" sx={{ mb: 2 }}>
           Как играть:
         </Typography>
