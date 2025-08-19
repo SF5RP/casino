@@ -51,6 +51,12 @@ const MEMORY_GAME_PAGE = () => {
   const [lastFoundPair, setLastFoundPair] = useState<
     { row: number; col: number }[]
   >([]);
+  // Состояние для типа анимации (deletion, celebration)
+  const [animationType, setAnimationType] = useState<
+    "deletion" | "celebration" | null
+  >(null);
+  // Защита от множественных вызовов анимации
+  const [isAnimationRunning, setIsAnimationRunning] = useState(false);
   // Больше не используем общий список пар
 
   // Кэш оставшихся использований для каждого изображения
@@ -62,16 +68,51 @@ const MEMORY_GAME_PAGE = () => {
     return map;
   }, [draggableImages]);
 
-  // Анимация пульса для последней найденной пары (зелёная)
-  const lastPairPulse = keyframes({
+  // Анимация празднования с мягким покачиванием для найденной пары
+  const celebrationAnimation = keyframes({
     "0%": {
-      boxShadow: "0 0 0 0 rgba(76, 175, 80, 0.9)",
+      transform: "scale(1) rotate(0deg)",
+      filter: "brightness(1)",
     },
-    "60%": {
-      boxShadow: "0 0 0 14px rgba(76, 175, 80, 0)",
+    "25%": {
+      transform: "scale(1.03) rotate(-2deg)",
+      filter: "brightness(1.2)",
+    },
+    "50%": {
+      transform: "scale(1.05) rotate(2deg)",
+      filter: "brightness(1.3)",
+    },
+    "75%": {
+      transform: "scale(1.03) rotate(-2deg)",
+      filter: "brightness(1.2)",
     },
     "100%": {
-      boxShadow: "0 0 0 0 rgba(76, 175, 80, 0)",
+      transform: "scale(1) rotate(0deg)",
+      filter: "brightness(1)",
+    },
+  });
+
+  // Анимация удаления с мягким покачиванием (красная)
+  const deletionAnimation = keyframes({
+    "0%": {
+      boxShadow:
+        "0 0 20px rgba(244, 67, 54, 0.9), 0 0 30px rgba(244, 67, 54, 0.6), 0 0 40px rgba(244, 67, 54, 0.4), inset 0 0 10px rgba(244, 67, 54, 0.3)",
+      transform: "scale(1) rotate(0deg)",
+    },
+    "33%": {
+      boxShadow:
+        "0 0 20px rgba(244, 67, 54, 0.9), 0 0 30px rgba(244, 67, 54, 0.6), 0 0 40px rgba(244, 67, 54, 0.4), inset 0 0 10px rgba(244, 67, 54, 0.3)",
+      transform: "scale(1.03) rotate(-3deg)",
+    },
+    "66%": {
+      boxShadow:
+        "0 0 20px rgba(244, 67, 54, 0.9), 0 0 30px rgba(244, 67, 54, 0.6), 0 0 40px rgba(244, 67, 54, 0.4), inset 0 0 10px rgba(244, 67, 54, 0.3)",
+      transform: "scale(1.05) rotate(3deg)",
+    },
+    "100%": {
+      boxShadow:
+        "0 0 20px rgba(244, 67, 54, 0.9), 0 0 30px rgba(244, 67, 54, 0.6), 0 0 40px rgba(244, 67, 54, 0.4), inset 0 0 10px rgba(244, 67, 54, 0.3)",
+      transform: "scale(1) rotate(0deg)",
     },
   });
   // Упростили: не ищем все пары, подсвечиваем только последнюю найденную
@@ -137,94 +178,89 @@ const MEMORY_GAME_PAGE = () => {
 
     // Очищаем подсветку последней пары при новой игре
     setLastFoundPair([]);
+    setAnimationType(null);
+    setIsAnimationRunning(false); // Сбрасываем защиту от множественных анимаций
 
     console.log("✅ Игра инициализирована!");
   }, [initializeGameBoard, generateImages]);
 
   // Проверяем совпадения на поле
   const checkMatches = useCallback(() => {
+    // Защита от множественных вызовов
+    if (isAnimationRunning) return;
+
     setGameBoard((prev) => {
       const newBoard = [...prev];
       const newlyFoundPairs: { row: number; col: number }[] = [];
 
-      // Простая логика проверки совпадений
+      // Логика проверки совпадений по всему полю
+      const processedPairs = new Set<string>(); // Чтобы избежать дублирования пар
+
       for (let row = 0; row < 6; row++) {
         for (let col = 0; col < 10; col++) {
           if (newBoard[row][col].image && !newBoard[row][col].isMatched) {
             const currentImage = newBoard[row][col].image;
 
-            // Проверяем справа
-            if (
-              col < 9 &&
-              newBoard[row][col + 1].image === currentImage &&
-              !newBoard[row][col + 1].isMatched
-            ) {
-              newBoard[row][col].isMatched = true;
-              newBoard[row][col + 1].isMatched = true;
-              newlyFoundPairs.push({ row, col }, { row, col: col + 1 });
-            }
+            // Ищем все ячейки с таким же изображением по всему полю
+            for (let searchRow = 0; searchRow < 6; searchRow++) {
+              for (let searchCol = 0; searchCol < 10; searchCol++) {
+                // Пропускаем ту же ячейку
+                if (searchRow === row && searchCol === col) continue;
 
-            // Проверяем снизу
-            if (
-              row < 5 &&
-              newBoard[row + 1][col].image === currentImage &&
-              !newBoard[row + 1][col].isMatched
-            ) {
-              newBoard[row][col].isMatched = true;
-              newBoard[row + 1][col].isMatched = true;
-              newlyFoundPairs.push({ row, col }, { row: row + 1, col });
-            }
+                // Проверяем, есть ли совпадение
+                if (
+                  newBoard[searchRow][searchCol].image === currentImage &&
+                  !newBoard[searchRow][searchCol].isMatched
+                ) {
+                  // Создаем уникальный ключ для пары (сортируем координаты для консистентности)
+                  const pair1 = `${row}-${col}`;
+                  const pair2 = `${searchRow}-${searchCol}`;
+                  const pairKey = [pair1, pair2].sort().join("|");
 
-            // Проверяем по диагонали вправо-вниз
-            if (
-              row < 5 &&
-              col < 9 &&
-              newBoard[row + 1][col + 1].image === currentImage &&
-              !newBoard[row + 1][col + 1].isMatched
-            ) {
-              newBoard[row][col].isMatched = true;
-              newBoard[row + 1][col + 1].isMatched = true;
-              newlyFoundPairs.push(
-                { row, col },
-                { row: row + 1, col: col + 1 }
-              );
-            }
+                  // Если эта пара еще не обработана
+                  if (!processedPairs.has(pairKey)) {
+                    processedPairs.add(pairKey);
 
-            // Проверяем по диагонали влево-вниз
-            if (
-              row < 5 &&
-              col > 0 &&
-              newBoard[row + 1][col - 1].image === currentImage &&
-              !newBoard[row + 1][col - 1].isMatched
-            ) {
-              newBoard[row][col].isMatched = true;
-              newBoard[row + 1][col - 1].isMatched = true;
-              newlyFoundPairs.push(
-                { row, col },
-                { row: row + 1, col: col - 1 }
-              );
+                    // Помечаем обе ячейки как найденные
+                    newBoard[row][col].isMatched = true;
+                    newBoard[searchRow][searchCol].isMatched = true;
+
+                    // Добавляем в список найденных пар
+                    newlyFoundPairs.push(
+                      { row, col },
+                      { row: searchRow, col: searchCol }
+                    );
+                  }
+                }
+              }
             }
           }
         }
       }
 
-      // Если найдены новые пары, сохраняем последнюю найденную пару
-      if (newlyFoundPairs.length > 0) {
+      // Если найдены новые пары, запускаем анимацию только один раз
+      if (newlyFoundPairs.length > 0 && !isAnimationRunning) {
         // Берем последнюю найденную пару (последние 2 элемента)
         const lastPair = newlyFoundPairs.slice(-2);
+
+        // Устанавливаем защиту от множественных анимаций
+        setIsAnimationRunning(true);
+
+        // Запускаем анимацию празднования
         setLastFoundPair(lastPair);
+        setAnimationType("celebration");
 
-        // Скрываем подсветку последней пары через 3 секунды
+        // Единый таймер для управления анимацией
         setTimeout(() => {
-          setLastFoundPair([]);
-        }, 3000);
+          setAnimationType(null);
+          setLastFoundPair([]); // Сразу скрываем подсветку
+          setIsAnimationRunning(false); // Снимаем защиту
+        }, 2000); // Анимация празднования длится 2 секунды
       }
-
-      // Подсветка только последней пары, общую подсветку пар не используем
 
       return newBoard;
     });
-  }, []);
+  }, [isAnimationRunning]);
 
   // Обработка перемещения картинки между ячейками поля
   const handleCellToCell = useCallback(
@@ -284,12 +320,14 @@ const MEMORY_GAME_PAGE = () => {
         return newBoard;
       });
 
-      // Проверяем совпадения после перемещения
-      setTimeout(checkMatches, 100);
-
-      // Подсветка только последней пары, общую подсветку пар не используем
+      // Проверяем совпадения после перемещения с задержкой
+      setTimeout(() => {
+        if (!isAnimationRunning) {
+          checkMatches();
+        }
+      }, 200);
     },
-    [isGameStarted, gameBoard, checkMatches]
+    [isGameStarted, gameBoard, checkMatches, isAnimationRunning]
   );
 
   // Обработка размещения картинки на игровом поле
@@ -339,10 +377,20 @@ const MEMORY_GAME_PAGE = () => {
         });
       }
 
-      // Проверяем совпадения после размещения
-      setTimeout(checkMatches, 100);
+      // Проверяем совпадения после размещения с задержкой
+      setTimeout(() => {
+        if (!isAnimationRunning) {
+          checkMatches();
+        }
+      }, 200);
     },
-    [isGameStarted, checkMatches, gameBoard, isDraggingFromCell]
+    [
+      isGameStarted,
+      checkMatches,
+      gameBoard,
+      isDraggingFromCell,
+      isAnimationRunning,
+    ]
   );
 
   // Обработчики drag and drop с поддержкой touch
@@ -551,11 +599,29 @@ const MEMORY_GAME_PAGE = () => {
         // Сбрасываем подсветку последней найденной пары
         setLastFoundPair([]);
 
-        // Проверяем совпадения после удаления
-        setTimeout(checkMatches, 100);
+        // Запускаем короткую анимацию удаления только если нет других анимаций
+        if (!isAnimationRunning) {
+          setIsAnimationRunning(true);
+          setTimeout(() => {
+            setAnimationType("deletion");
+            setLastFoundPair([{ row, col }]);
+            setTimeout(() => {
+              setLastFoundPair([]);
+              setAnimationType(null);
+              setIsAnimationRunning(false);
+            }, 1000); // Короткая подсветка для удаления
+          }, 100);
+        }
+
+        // Проверяем совпадения после удаления с задержкой
+        setTimeout(() => {
+          if (!isAnimationRunning) {
+            checkMatches();
+          }
+        }, 200);
       }
     },
-    [gameBoard, draggableImages, checkMatches]
+    [gameBoard, draggableImages, checkMatches, isAnimationRunning]
   );
 
   // Обработчик клика по ячейке (для переворачивания картинок и показа иконки удаления)
@@ -632,6 +698,16 @@ const MEMORY_GAME_PAGE = () => {
   useEffect(() => {
     startNewGame();
   }, [startNewGame]);
+
+  // Очистка таймеров при размонтировании
+  useEffect(() => {
+    return () => {
+      // Очищаем все таймеры при размонтировании
+      setIsAnimationRunning(false);
+      setLastFoundPair([]);
+      setAnimationType(null);
+    };
+  }, []);
 
   return (
     <Box
@@ -815,143 +891,196 @@ const MEMORY_GAME_PAGE = () => {
             }}
           >
             {gameBoard.map((row, rowIndex) =>
-              row.map((cell, colIndex) => (
-                <Box
-                  key={cell.id}
-                  data-cell-id={`${rowIndex}-${colIndex}`}
-                  sx={{
-                    position: "relative",
-                    width: "100%",
-                    aspectRatio: "1 / 1",
-                    borderStyle: "solid",
-                    borderColor: (() => {
-                      const isInLastPair = lastFoundPair.some(
-                        (pos) => pos.row === rowIndex && pos.col === colIndex
-                      );
-                      if (cell.isMatched) return "success.main";
-                      return isInLastPair ? "success.main" : "#000";
-                    })(),
-                    borderWidth: (() => {
-                      const isInLastPair = lastFoundPair.some(
-                        (pos) => pos.row === rowIndex && pos.col === colIndex
-                      );
-                      if (cell.isMatched) return 2;
-                      return isInLastPair ? 4 : 1;
-                    })(),
-                    borderRadius: 1,
-                    backgroundColor: (() => {
-                      const remaining = cell.image
-                        ? imageRemainingMap.get(cell.image) ?? 0
-                        : 0;
-                      if (remaining === 1) return "#ffeb3b";
-                      if (cell.isMatched) return "success.light";
-                      if (cell.isPlaced && cell.isFlipped)
-                        return "primary.light";
-                      return "grey.100";
-                    })(),
-                    cursor: cell.isPlaced ? "pointer" : "default",
-                    transition: "all 0.3s ease", // Плавная анимация
-                    boxShadow: (() => {
-                      const isInLastPair = lastFoundPair.some(
-                        (pos) => pos.row === rowIndex && pos.col === colIndex
-                      );
-                      return isInLastPair
-                        ? "0 0 12px rgba(76, 175, 80, 0.7), 0 0 20px rgba(76, 175, 80, 0.35)"
-                        : "none";
-                    })(),
-                    outline: "none",
-                    animation: (() => {
-                      const isInLastPair = lastFoundPair.some(
-                        (pos) => pos.row === rowIndex && pos.col === colIndex
-                      );
-                      return isInLastPair
-                        ? `${lastPairPulse} 1.2s ease-in-out infinite`
-                        : "none";
-                    })(),
-                    "&:hover": cell.isPlaced
-                      ? {
-                          transform: "scale(1.02)",
-                          boxShadow: "0 6px 14px rgba(0,0,0,0.25)",
-                        }
-                      : {},
-                  }}
-                  onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
-                >
-                  {cell.image && (
-                    <Box
-                      onMouseDown={(e) =>
-                        handleCellMouseDown(e, rowIndex, colIndex)
-                      }
-                      onTouchStart={(e) => {
-                        const touch = e.touches[0];
-                        const mouseEvent = {
-                          ...e,
-                          clientX: touch.clientX,
-                          clientY: touch.clientY,
-                          preventDefault: () => e.preventDefault(),
-                          stopPropagation: () => e.stopPropagation(),
-                        } as unknown as React.MouseEvent;
-                        handleCellMouseDown(mouseEvent, rowIndex, colIndex);
-                      }}
-                      sx={{
-                        position: "absolute",
-                        inset: 4,
-                        borderRadius: 0.5,
-                        overflow: "hidden",
-                        opacity: cell.isFlipped ? 1 : 0.3,
-                        pointerEvents: cell.isPlaced ? "auto" : "none",
-                        cursor: cell.isPlaced ? "grab" : "default",
-                        userSelect: "none",
-                        WebkitUserSelect: "none",
-                        "&:active": cell.isPlaced
-                          ? {
-                              cursor: "grabbing",
-                            }
-                          : {},
-                      }}
-                    >
-                      <Image
-                        src={cell.image}
-                        alt="card"
-                        fill
-                        draggable={false}
-                        style={{ objectFit: "cover" }}
-                      />
-                    </Box>
-                  )}
+              row.map((cell, colIndex) => {
+                const isInLastPair = lastFoundPair.some(
+                  (pos) => pos.row === rowIndex && pos.col === colIndex
+                );
 
-                  {/* Иконка удаления */}
-                  {cell.showDeleteIcon && (
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        top: 2,
-                        right: 2,
-                        backgroundColor: "rgba(255, 0, 0, 0.8)",
-                        color: "white",
-                        borderRadius: "50%",
-                        width: { xs: 24, sm: 26, md: 30, lg: 34, xl: 38 }, // Увеличиваем для соответствия картинкам
-                        height: { xs: 24, sm: 26, md: 30, lg: 34, xl: 38 }, // Увеличиваем для соответствия картинкам
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        zIndex: 10,
-                        "&:hover": {
-                          backgroundColor: "rgba(255, 0, 0, 1)",
-                        },
-                      }}
-                    >
-                      <Delete
-                        sx={{
-                          fontSize: { xs: 16, sm: 17, md: 18, lg: 20, xl: 22 },
+                return (
+                  <Box
+                    key={cell.id}
+                    data-cell-id={`${rowIndex}-${colIndex}`}
+                    className={(() => {
+                      if (!isInLastPair) return "";
+
+                      // Разные классы для разных типов анимации
+                      switch (animationType) {
+                        case "celebration":
+                          return "memory-game-found-pair memory-game-celebration";
+                        case "deletion":
+                          return "memory-game-found-pair memory-game-deletion";
+                        default:
+                          return "memory-game-found-pair";
+                      }
+                    })()}
+                    sx={{
+                      position: "relative",
+                      width: "100%",
+                      aspectRatio: "1 / 1",
+                      borderStyle: "solid",
+                      borderColor: (() => {
+                        if (cell.isMatched) return "success.main";
+                        if (!isInLastPair) return "#000";
+
+                        // Разные цвета для разных типов анимации
+                        switch (animationType) {
+                          case "celebration":
+                            return "#00ff00"; // Зелёный для празднования
+                          case "deletion":
+                            return "#f44336"; // Красный для удаления
+                          default:
+                            return "#00ff00";
+                        }
+                      })(),
+                      borderWidth: (() => {
+                        if (cell.isMatched) return 2;
+                        return isInLastPair ? 6 : 1; // Увеличиваем толщину границы
+                      })(),
+                      borderRadius: 1,
+                      backgroundColor: (() => {
+                        const remaining = cell.image
+                          ? imageRemainingMap.get(cell.image) ?? 0
+                          : 0;
+                        if (remaining === 1) return "#ffeb3b";
+                        if (cell.isMatched) return "success.light";
+                        if (isInLastPair) {
+                          // Разные фоны для разных типов анимации
+                          switch (animationType) {
+                            case "celebration":
+                              return "rgba(0, 255, 0, 0.2)"; // Зелёный для празднования
+                            case "deletion":
+                              return "rgba(244, 67, 54, 0.2)"; // Красный для удаления
+                            default:
+                              return "rgba(0, 255, 0, 0.2)";
+                          }
+                        }
+                        if (cell.isPlaced && cell.isFlipped)
+                          return "primary.light";
+                        return "grey.100";
+                      })(),
+                      cursor: cell.isPlaced ? "pointer" : "default",
+                      transition: "all 0.3s ease", // Плавная анимация
+                      boxShadow: (() => {
+                        if (!isInLastPair) return "none";
+
+                        // Разные тени для разных типов анимации - одинаковый радиус
+                        switch (animationType) {
+                          case "celebration":
+                            return "0 0 20px rgba(0, 255, 0, 0.9), 0 0 30px rgba(0, 255, 0, 0.6), 0 0 40px rgba(0, 255, 0, 0.4), inset 0 0 10px rgba(0, 255, 0, 0.3)";
+                          case "deletion":
+                            return "0 0 20px rgba(244, 67, 54, 0.9), 0 0 30px rgba(244, 67, 54, 0.6), 0 0 40px rgba(244, 67, 54, 0.4), inset 0 0 10px rgba(244, 67, 54, 0.3)";
+                          default:
+                            return "0 0 20px rgba(0, 255, 0, 0.9), 0 0 30px rgba(0, 255, 0, 0.6), 0 0 40px rgba(0, 255, 0, 0.4), inset 0 0 10px rgba(0, 255, 0, 0.3)";
+                        }
+                      })(),
+                      outline: "none",
+                      animation: (() => {
+                        if (!isInLastPair) return "none";
+
+                        // Разные анимации для разных типов
+                        switch (animationType) {
+                          case "celebration":
+                            return `${celebrationAnimation} 0.6s ease-in-out 3`;
+                          case "deletion":
+                            return `${deletionAnimation} 0.8s ease-in-out infinite`;
+                          default:
+                            return "none"; // Убираем автоматический запуск lastPairPulse
+                        }
+                      })(),
+                      "&:hover": cell.isPlaced
+                        ? {
+                            transform: "scale(1.02)",
+                            boxShadow: "0 6px 14px rgba(0,0,0,0.25)",
+                          }
+                        : {},
+                    }}
+                    onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
+                  >
+                    {cell.image && (
+                      <Box
+                        onMouseDown={(e) =>
+                          handleCellMouseDown(e, rowIndex, colIndex)
+                        }
+                        onTouchStart={(e) => {
+                          const touch = e.touches[0];
+                          const mouseEvent = {
+                            ...e,
+                            clientX: touch.clientX,
+                            clientY: touch.clientY,
+                            preventDefault: () => e.preventDefault(),
+                            stopPropagation: () => e.stopPropagation(),
+                          } as unknown as React.MouseEvent;
+                          handleCellMouseDown(mouseEvent, rowIndex, colIndex);
                         }}
-                      />{" "}
-                      {/* Увеличиваем для ПК */}
-                    </Box>
-                  )}
-                </Box>
-              ))
+                        sx={{
+                          position: "absolute",
+                          inset: 4,
+                          borderRadius: 0.5,
+                          overflow: "hidden",
+                          opacity: cell.isFlipped ? 1 : 0.3,
+                          pointerEvents: cell.isPlaced ? "auto" : "none",
+                          cursor: cell.isPlaced ? "grab" : "default",
+                          userSelect: "none",
+                          WebkitUserSelect: "none",
+                          "&:active": cell.isPlaced
+                            ? {
+                                cursor: "grabbing",
+                              }
+                            : {},
+                        }}
+                      >
+                        <Image
+                          src={cell.image}
+                          alt="card"
+                          fill
+                          draggable={false}
+                          style={{ objectFit: "cover" }}
+                        />
+
+                        {/* Дополнительное свечение для найденной пары */}
+                        {isInLastPair && <Box className="found-pair-glow" />}
+                      </Box>
+                    )}
+
+                    {/* Иконка удаления */}
+                    {cell.showDeleteIcon && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: 2,
+                          right: 2,
+                          backgroundColor: "rgba(255, 0, 0, 0.8)",
+                          color: "white",
+                          borderRadius: "50%",
+                          width: { xs: 24, sm: 26, md: 30, lg: 34, xl: 38 }, // Увеличиваем для соответствия картинкам
+                          height: { xs: 24, sm: 26, md: 30, lg: 34, xl: 38 }, // Увеличиваем для соответствия картинкам
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          zIndex: 10,
+                          "&:hover": {
+                            backgroundColor: "rgba(255, 0, 0, 1)",
+                          },
+                        }}
+                      >
+                        <Delete
+                          sx={{
+                            fontSize: {
+                              xs: 16,
+                              sm: 17,
+                              md: 18,
+                              lg: 20,
+                              xl: 22,
+                            },
+                          }}
+                        />{" "}
+                        {/* Увеличиваем для ПК */}
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })
             )}
           </Box>
         </Paper>
