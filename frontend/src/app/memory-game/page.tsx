@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import Image from "next/image";
 import { Box, Typography, Paper, IconButton, Tooltip } from "@mui/material";
+import { keyframes } from "@mui/system";
 import { Casino, Refresh, Delete } from "@mui/icons-material";
+import Script from "next/script";
 
 interface CardItem {
   id: string;
@@ -31,6 +34,47 @@ const MEMORY_GAME_PAGE = () => {
   const [draggedImage, setDraggedImage] = useState<DraggableImage | null>(null);
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+
+  // Состояния для перетаскивания между ячейками поля
+  const [draggedFromCell, setDraggedFromCell] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
+  const [isDraggingFromCell, setIsDraggingFromCell] = useState(false);
+
+  // Используем draggedFromCell для отладки (предотвращаем предупреждение)
+  if (process.env.NODE_ENV === "development" && draggedFromCell) {
+    console.debug("Dragging from cell:", draggedFromCell);
+  }
+
+  // Состояния для подсветки пар
+  const [lastFoundPair, setLastFoundPair] = useState<
+    { row: number; col: number }[]
+  >([]);
+  // Больше не используем общий список пар
+
+  // Кэш оставшихся использований для каждого изображения
+  const imageRemainingMap = useMemo(() => {
+    const map = new Map<string, number>();
+    draggableImages.forEach((img) => {
+      map.set(img.image, img.maxUsage - img.usageCount);
+    });
+    return map;
+  }, [draggableImages]);
+
+  // Анимация пульса для последней найденной пары (зелёная)
+  const lastPairPulse = keyframes({
+    "0%": {
+      boxShadow: "0 0 0 0 rgba(76, 175, 80, 0.9)",
+    },
+    "60%": {
+      boxShadow: "0 0 0 14px rgba(76, 175, 80, 0)",
+    },
+    "100%": {
+      boxShadow: "0 0 0 0 rgba(76, 175, 80, 0)",
+    },
+  });
+  // Упростили: не ищем все пары, подсвечиваем только последнюю найденную
 
   // Генерируем 30 уникальных картинок для игры
   const generateImages = useCallback(() => {
@@ -91,6 +135,9 @@ const MEMORY_GAME_PAGE = () => {
 
     setIsGameStarted(true);
 
+    // Очищаем подсветку последней пары при новой игре
+    setLastFoundPair([]);
+
     console.log("✅ Игра инициализирована!");
   }, [initializeGameBoard, generateImages]);
 
@@ -98,6 +145,7 @@ const MEMORY_GAME_PAGE = () => {
   const checkMatches = useCallback(() => {
     setGameBoard((prev) => {
       const newBoard = [...prev];
+      const newlyFoundPairs: { row: number; col: number }[] = [];
 
       // Простая логика проверки совпадений
       for (let row = 0; row < 6; row++) {
@@ -113,6 +161,7 @@ const MEMORY_GAME_PAGE = () => {
             ) {
               newBoard[row][col].isMatched = true;
               newBoard[row][col + 1].isMatched = true;
+              newlyFoundPairs.push({ row, col }, { row, col: col + 1 });
             }
 
             // Проверяем снизу
@@ -123,6 +172,7 @@ const MEMORY_GAME_PAGE = () => {
             ) {
               newBoard[row][col].isMatched = true;
               newBoard[row + 1][col].isMatched = true;
+              newlyFoundPairs.push({ row, col }, { row: row + 1, col });
             }
 
             // Проверяем по диагонали вправо-вниз
@@ -134,6 +184,10 @@ const MEMORY_GAME_PAGE = () => {
             ) {
               newBoard[row][col].isMatched = true;
               newBoard[row + 1][col + 1].isMatched = true;
+              newlyFoundPairs.push(
+                { row, col },
+                { row: row + 1, col: col + 1 }
+              );
             }
 
             // Проверяем по диагонали влево-вниз
@@ -145,14 +199,98 @@ const MEMORY_GAME_PAGE = () => {
             ) {
               newBoard[row][col].isMatched = true;
               newBoard[row + 1][col - 1].isMatched = true;
+              newlyFoundPairs.push(
+                { row, col },
+                { row: row + 1, col: col - 1 }
+              );
             }
           }
         }
       }
 
+      // Если найдены новые пары, сохраняем последнюю найденную пару
+      if (newlyFoundPairs.length > 0) {
+        // Берем последнюю найденную пару (последние 2 элемента)
+        const lastPair = newlyFoundPairs.slice(-2);
+        setLastFoundPair(lastPair);
+
+        // Скрываем подсветку последней пары через 3 секунды
+        setTimeout(() => {
+          setLastFoundPair([]);
+        }, 3000);
+      }
+
+      // Подсветка только последней пары, общую подсветку пар не используем
+
       return newBoard;
     });
   }, []);
+
+  // Обработка перемещения картинки между ячейками поля
+  const handleCellToCell = useCallback(
+    (fromRow: number, fromCol: number, toRow: number, toCol: number) => {
+      if (!isGameStarted) return;
+
+      // Если перетаскиваем в ту же ячейку, ничего не делаем
+      if (fromRow === toRow && fromCol === toCol) return;
+
+      const fromCell = gameBoard[fromRow][fromCol];
+      const toCell = gameBoard[toRow][toCol];
+
+      if (!fromCell.image || !fromCell.isPlaced) return;
+
+      setGameBoard((prev) => {
+        const newBoard = prev.map((row) => row.slice()); // Глубокое копирование
+
+        // Если целевая ячейка занята, меняем картинки местами
+        if (toCell.image) {
+          // Меняем местами, переносим статус совпадения вместе с картинкой
+          newBoard[toRow][toCol] = {
+            ...toCell,
+            image: fromCell.image,
+            isFlipped: fromCell.isFlipped,
+            isPlaced: true,
+            isMatched: fromCell.isMatched,
+            showDeleteIcon: false,
+          };
+          newBoard[fromRow][fromCol] = {
+            ...fromCell,
+            image: toCell.image,
+            isFlipped: toCell.isFlipped,
+            isPlaced: true,
+            isMatched: toCell.isMatched,
+            showDeleteIcon: false,
+          };
+        } else {
+          // Просто перемещаем в пустую ячейку
+          newBoard[toRow][toCol] = {
+            ...toCell,
+            image: fromCell.image,
+            isFlipped: fromCell.isFlipped,
+            isPlaced: true,
+            isMatched: fromCell.isMatched,
+            showDeleteIcon: false,
+          };
+          newBoard[fromRow][fromCol] = {
+            ...fromCell,
+            image: "",
+            isFlipped: false,
+            isPlaced: false,
+            isMatched: false,
+            showDeleteIcon: false,
+          };
+        }
+
+        return newBoard;
+      });
+
+      // Проверяем совпадения после перемещения
+      setTimeout(checkMatches, 100);
+
+      // Подсветка только последней пары, общую подсветку пар не используем
+    },
+    [isGameStarted, gameBoard, checkMatches]
+  );
 
   // Обработка размещения картинки на игровом поле
   const handleImageDrop = useCallback(
@@ -177,31 +315,34 @@ const MEMORY_GAME_PAGE = () => {
         return newBoard;
       });
 
-      // Увеличиваем счетчик использований
-      setDraggableImages((prev) => {
-        const newImages = prev.map((img, idx) =>
-          idx === imageIndex
-            ? {
-                ...img,
-                usageCount: img.usageCount + 1,
-                isUsed: img.usageCount + 1 >= img.maxUsage,
-              }
-            : img
-        );
+      // Увеличиваем счетчик использований только если перетаскиваем из панели изображений
+      if (!isDraggingFromCell) {
+        setDraggableImages((prev) => {
+          const newImages = prev.map((img, idx) =>
+            idx === imageIndex
+              ? {
+                  ...img,
+                  usageCount: img.usageCount + 1,
+                  isUsed: img.usageCount + 1 >= img.maxUsage,
+                }
+              : img
+          );
 
-        // Сортируем: сначала доступные картинки, потом использованные
-        return newImages.sort((a, b) => {
-          if (a.usageCount >= a.maxUsage && b.usageCount < b.maxUsage) return 1;
-          if (a.usageCount < a.maxUsage && b.usageCount >= b.maxUsage)
-            return -1;
-          return 0;
+          // Сортируем: сначала доступные картинки, потом использованные
+          return newImages.sort((a, b) => {
+            if (a.usageCount >= a.maxUsage && b.usageCount < b.maxUsage)
+              return 1;
+            if (a.usageCount < a.maxUsage && b.usageCount >= b.maxUsage)
+              return -1;
+            return 0;
+          });
         });
-      });
+      }
 
       // Проверяем совпадения после размещения
       setTimeout(checkMatches, 100);
     },
-    [isGameStarted, checkMatches, gameBoard]
+    [isGameStarted, checkMatches, gameBoard, isDraggingFromCell]
   );
 
   // Обработчики drag and drop с поддержкой touch
@@ -213,6 +354,7 @@ const MEMORY_GAME_PAGE = () => {
       setDraggedImage(image);
       setDragPosition({ x: e.clientX, y: e.clientY });
       setIsDragging(true);
+      setDraggedFromCell(null); // Перетаскиваем из панели изображений
 
       const handleMouseMove = (e: MouseEvent) => {
         e.preventDefault();
@@ -249,7 +391,9 @@ const MEMORY_GAME_PAGE = () => {
         }
 
         setIsDragging(false);
+        setIsDraggingFromCell(false);
         setDraggedImage(null);
+        setDraggedFromCell(null);
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleEnd);
         document.removeEventListener("touchmove", handleTouchMove);
@@ -266,11 +410,92 @@ const MEMORY_GAME_PAGE = () => {
     [isGameStarted, handleImageDrop]
   );
 
+  // Обработчик начала перетаскивания из ячейки поля
+  const handleCellMouseDown = useCallback(
+    (e: React.MouseEvent, row: number, col: number) => {
+      const cell = gameBoard[row][col];
+      if (!cell.image || !cell.isPlaced || !isGameStarted) return;
+
+      e.preventDefault();
+      e.stopPropagation(); // Предотвращаем вызов handleCellClick
+
+      // Создаем объект DraggableImage из ячейки
+      const cellImage: DraggableImage = {
+        id: `cell-${row}-${col}`,
+        image: cell.image,
+        fallbackImage: cell.image,
+        isUsed: false,
+        usageCount: 0,
+        maxUsage: 2,
+      };
+
+      setDraggedImage(cellImage);
+      setDraggedFromCell({ row, col });
+      setDragPosition({ x: e.clientX, y: e.clientY });
+      setIsDragging(true);
+      setIsDraggingFromCell(true);
+
+      const handleMouseMove = (e: MouseEvent) => {
+        e.preventDefault();
+        setDragPosition({ x: e.clientX, y: e.clientY });
+      };
+
+      const handleTouchMove = (e: TouchEvent) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        setDragPosition({ x: touch.clientX, y: touch.clientY });
+      };
+
+      const handleEnd = (e: MouseEvent | TouchEvent) => {
+        let clientX, clientY;
+        if (e instanceof MouseEvent) {
+          clientX = e.clientX;
+          clientY = e.clientY;
+        } else {
+          const touch = e.changedTouches[0];
+          clientX = touch.clientX;
+          clientY = touch.clientY;
+        }
+
+        const elementUnderMouse = document.elementFromPoint(clientX, clientY);
+        if (elementUnderMouse) {
+          const cellElement = elementUnderMouse.closest("[data-cell-id]");
+          if (cellElement) {
+            const cellId = cellElement.getAttribute("data-cell-id");
+            if (cellId) {
+              const [targetRow, targetCol] = cellId.split("-").map(Number);
+              // Обрабатываем перенос между ячейками
+              handleCellToCell(row, col, targetRow, targetCol);
+            }
+          }
+        }
+
+        setIsDragging(false);
+        setIsDraggingFromCell(false);
+        setDraggedImage(null);
+        setDraggedFromCell(null);
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleEnd);
+        document.removeEventListener("touchmove", handleTouchMove);
+        document.removeEventListener("touchend", handleEnd);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleEnd);
+      document.addEventListener("touchmove", handleTouchMove, {
+        passive: false,
+      });
+      document.addEventListener("touchend", handleEnd);
+    },
+    [isGameStarted, gameBoard, handleCellToCell]
+  );
+
   // Удаление картинки с игрового поля
   const handleDeleteImage = useCallback(
     (row: number, col: number) => {
       const cell = gameBoard[row][col];
       if (!cell.image) return;
+      const deletedImage = cell.image;
 
       // Находим соответствующее изображение в панели
       const imageIndex = draggableImages.findIndex(
@@ -300,9 +525,10 @@ const MEMORY_GAME_PAGE = () => {
           });
         });
 
-        // Очищаем ячейку на игровом поле
+        // Очищаем ячейку на игровом поле и снимаем статус совпадения у парной картинки
         setGameBoard((prev) => {
-          const newBoard = [...prev];
+          const newBoard = prev.map((r) => r.map((c) => ({ ...c })));
+          // Сброс удаляемой ячейки
           newBoard[row][col] = {
             ...newBoard[row][col],
             image: "",
@@ -311,8 +537,19 @@ const MEMORY_GAME_PAGE = () => {
             showDeleteIcon: false,
             isMatched: false,
           };
+          // Сброс статуса совпадения у второй половины пары, если есть
+          for (let r = 0; r < newBoard.length; r++) {
+            for (let c = 0; c < newBoard[r].length; c++) {
+              if (newBoard[r][c].image === deletedImage) {
+                newBoard[r][c].isMatched = false;
+              }
+            }
+          }
           return newBoard;
         });
+
+        // Сбрасываем подсветку последней найденной пары
+        setLastFoundPair([]);
 
         // Проверяем совпадения после удаления
         setTimeout(checkMatches, 100);
@@ -324,7 +561,7 @@ const MEMORY_GAME_PAGE = () => {
   // Обработчик клика по ячейке (для переворачивания картинок и показа иконки удаления)
   const handleCellClick = useCallback(
     (row: number, col: number, e: React.MouseEvent) => {
-      if (!isGameStarted || !gameBoard[row][col].isPlaced) return;
+      if (!isGameStarted || !gameBoard[row][col].isPlaced || isDragging) return;
 
       // Предотвращаем всплытие события
       e.stopPropagation();
@@ -360,7 +597,7 @@ const MEMORY_GAME_PAGE = () => {
         }, 3000);
       }
     },
-    [isGameStarted, gameBoard, handleDeleteImage]
+    [isGameStarted, gameBoard, handleDeleteImage, isDragging]
   );
 
   // Обработчик клика по игровому полю для скрытия иконок удаления
@@ -409,6 +646,25 @@ const MEMORY_GAME_PAGE = () => {
       }}
       onClick={handlePageClick}
     >
+      <Script id="yandex-metrika" strategy="afterInteractive">
+        {`(function(m,e,t, r, i, k, a){
+            m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+            m[i].l=1*new Date();
+            for (var j = 0; j < document.scripts.length; j++) { if (document.scripts[j].src === r) { return; } }
+            k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+        })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js?id=103802063', 'ym');
+        ym(103802063, 'init', { ssr: true, webvisor: true, clickmap: true, ecommerce: 'dataLayer', accurateTrackBounce: true, trackLinks: true });`}
+      </Script>
+      <noscript>
+        <div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://mc.yandex.ru/watch/103802063"
+            className="ym-noscript"
+            alt=""
+          />
+        </div>
+      </noscript>
       <Box
         sx={{
           display: "flex",
@@ -567,24 +823,55 @@ const MEMORY_GAME_PAGE = () => {
                     position: "relative",
                     width: "100%",
                     aspectRatio: "1 / 1",
-                    border: "1px solid", // Уменьшена толщина с 2px до 1px
-                    borderColor: cell.isMatched
-                      ? "success.main"
-                      : cell.isPlaced && cell.isFlipped
-                      ? "primary.main"
-                      : "grey.300",
+                    borderStyle: "solid",
+                    borderColor: (() => {
+                      const isInLastPair = lastFoundPair.some(
+                        (pos) => pos.row === rowIndex && pos.col === colIndex
+                      );
+                      if (cell.isMatched) return "success.main";
+                      return isInLastPair ? "success.main" : "#000";
+                    })(),
+                    borderWidth: (() => {
+                      const isInLastPair = lastFoundPair.some(
+                        (pos) => pos.row === rowIndex && pos.col === colIndex
+                      );
+                      if (cell.isMatched) return 2;
+                      return isInLastPair ? 4 : 1;
+                    })(),
                     borderRadius: 1,
-                    backgroundColor: cell.isMatched
-                      ? "success.light"
-                      : cell.isPlaced && cell.isFlipped
-                      ? "primary.light"
-                      : "grey.100",
+                    backgroundColor: (() => {
+                      const remaining = cell.image
+                        ? imageRemainingMap.get(cell.image) ?? 0
+                        : 0;
+                      if (remaining === 1) return "#ffeb3b";
+                      if (cell.isMatched) return "success.light";
+                      if (cell.isPlaced && cell.isFlipped)
+                        return "primary.light";
+                      return "grey.100";
+                    })(),
                     cursor: cell.isPlaced ? "pointer" : "default",
-                    transition: "all 0.2s ease",
+                    transition: "all 0.3s ease", // Плавная анимация
+                    boxShadow: (() => {
+                      const isInLastPair = lastFoundPair.some(
+                        (pos) => pos.row === rowIndex && pos.col === colIndex
+                      );
+                      return isInLastPair
+                        ? "0 0 12px rgba(76, 175, 80, 0.7), 0 0 20px rgba(76, 175, 80, 0.35)"
+                        : "none";
+                    })(),
+                    outline: "none",
+                    animation: (() => {
+                      const isInLastPair = lastFoundPair.some(
+                        (pos) => pos.row === rowIndex && pos.col === colIndex
+                      );
+                      return isInLastPair
+                        ? `${lastPairPulse} 1.2s ease-in-out infinite`
+                        : "none";
+                    })(),
                     "&:hover": cell.isPlaced
                       ? {
                           transform: "scale(1.02)",
-                          boxShadow: 2,
+                          boxShadow: "0 6px 14px rgba(0,0,0,0.25)",
                         }
                       : {},
                   }}
@@ -592,20 +879,45 @@ const MEMORY_GAME_PAGE = () => {
                 >
                   {cell.image && (
                     <Box
-                      component="img"
-                      src={cell.image}
-                      alt="card"
+                      onMouseDown={(e) =>
+                        handleCellMouseDown(e, rowIndex, colIndex)
+                      }
+                      onTouchStart={(e) => {
+                        const touch = e.touches[0];
+                        const mouseEvent = {
+                          ...e,
+                          clientX: touch.clientX,
+                          clientY: touch.clientY,
+                          preventDefault: () => e.preventDefault(),
+                          stopPropagation: () => e.stopPropagation(),
+                        } as unknown as React.MouseEvent;
+                        handleCellMouseDown(mouseEvent, rowIndex, colIndex);
+                      }}
                       sx={{
                         position: "absolute",
                         inset: 4,
-                        width: "calc(100% - 8px)",
-                        height: "calc(100% - 8px)",
-                        objectFit: "cover",
                         borderRadius: 0.5,
+                        overflow: "hidden",
                         opacity: cell.isFlipped ? 1 : 0.3,
-                        pointerEvents: "none",
+                        pointerEvents: cell.isPlaced ? "auto" : "none",
+                        cursor: cell.isPlaced ? "grab" : "default",
+                        userSelect: "none",
+                        WebkitUserSelect: "none",
+                        "&:active": cell.isPlaced
+                          ? {
+                              cursor: "grabbing",
+                            }
+                          : {},
                       }}
-                    />
+                    >
+                      <Image
+                        src={cell.image}
+                        alt="card"
+                        fill
+                        draggable={false}
+                        style={{ objectFit: "cover" }}
+                      />
+                    </Box>
                   )}
 
                   {/* Иконка удаления */}
@@ -651,16 +963,17 @@ const MEMORY_GAME_PAGE = () => {
             width: {
               xs: "100%",
               sm: "100%",
-              md: 600, // Увеличиваем для соответствия размеру игрового поля
-              lg: 720, // Пропорционально увеличиваем для больших экранов
-              xl: 840, // Пропорционально увеличиваем для очень больших экранов
-              // Landscape планшеты - увеличиваем ширину
+              md: 400, // Уменьшаем ширину для лучшего переноса
+              lg: 480, // Оптимизируем для больших экранов
+              xl: 520, // Контролируем максимальную ширину
+              // Landscape планшеты - оптимизируем ширину
               "@media (orientation: landscape) and (max-width: 1024px)": {
-                width: "40vw",
-                minWidth: "320px",
+                width: "35vw",
+                minWidth: "300px",
+                maxWidth: "400px",
               },
             },
-            maxWidth: { xs: "100%", sm: "90vw", md: "none" },
+            maxWidth: { xs: "100%", sm: "90vw", md: "520px" },
             order: { xs: 2, md: 2 },
             // Убираем ограничения высоты и прокрутку полностью
             overflow: "visible",
@@ -682,22 +995,22 @@ const MEMORY_GAME_PAGE = () => {
             sx={{
               display: "grid",
               gridTemplateColumns: {
-                xs: "repeat(4, 1fr)", // Уменьшено с 6 до 4 для увеличения размера
-                sm: "repeat(5, 1fr)", // Уменьшено с 8 до 5
-                md: "repeat(6, 1fr)", // Возвращаем 6 картинок в ряд для ПК
-                lg: "repeat(6, 1fr)", // 6 картинок в ряд для больших экранов
-                xl: "repeat(6, 1fr)", // 6 картинок в ряд для очень больших экранов
+                xs: "repeat(4, 1fr)", // 4 колонки для телефонов
+                sm: "repeat(5, 1fr)", // 5 колонок для планшетов
+                md: "repeat(5, 1fr)", // 5 колонок для средних экранов (было 6, теперь 5 для лучшей упаковки)
+                lg: "repeat(5, 1fr)", // 5 колонок для больших экранов
+                xl: "repeat(6, 1fr)", // 6 колонок только для очень больших экранов
                 // Landscape планшеты
                 "@media (orientation: landscape) and (max-width: 1024px)": {
-                  gridTemplateColumns: "repeat(3, 1fr)", // Еще меньше для landscape
+                  gridTemplateColumns: "repeat(4, 1fr)", // 4 колонки для landscape планшетов
                 },
               },
               gap: {
-                xs: 0.75, // Увеличено для лучшего touch target
-                sm: 1,
-                md: 1.5, // Увеличено для ПК
-                lg: 2, // Еще больше для больших экранов
-                xl: 2.5, // Максимальный gap для очень больших экранов
+                xs: 0.5, // Уменьшено для экономии места
+                sm: 0.75, // Уменьшено
+                md: 1, // Уменьшено с 1.5 до 1
+                lg: 1.25, // Уменьшено с 2 до 1.25
+                xl: 1.5, // Уменьшено с 2.5 до 1.5
               },
               // Убираем все ограничения по высоте и скроллу
               width: "100%",
@@ -721,7 +1034,7 @@ const MEMORY_GAME_PAGE = () => {
                 sx={{
                   width: "100%",
                   aspectRatio: "1 / 1",
-                  border: "1px solid", // Уменьшена толщина с 2px до 1px
+                  border: "1px solid",
                   borderColor:
                     image.usageCount >= image.maxUsage
                       ? "grey.400"
@@ -733,6 +1046,8 @@ const MEMORY_GAME_PAGE = () => {
                   backgroundColor:
                     image.usageCount >= image.maxUsage
                       ? "grey.200"
+                      : image.maxUsage - image.usageCount === 1
+                      ? "#ffeb3b"
                       : "primary.light",
                   opacity: image.usageCount >= image.maxUsage ? 0.5 : 1,
                   cursor:
@@ -763,48 +1078,22 @@ const MEMORY_GAME_PAGE = () => {
                 }}
               >
                 <Box
-                  component="img"
-                  src={image.image}
-                  alt={`image-${image.id}`}
-                  onError={(e) => {
-                    e.currentTarget.src = image.fallbackImage;
-                  }}
                   sx={{
                     position: "absolute",
                     inset: 4,
-                    width: "calc(100% - 8px)",
-                    height: "calc(100% - 8px)",
-                    objectFit: "cover",
                     borderRadius: 0.5,
+                    overflow: "hidden",
                     pointerEvents: "none",
                     userSelect: "none",
                   }}
-                />
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: 2,
-                    right: 2,
-                    backgroundColor: "rgba(0, 0, 0, 0.7)",
-                    color: "white",
-                    borderRadius: "50%",
-                    width: { xs: 20, sm: 22, md: 26, lg: 30, xl: 34 }, // Увеличиваем для соответствия картинкам
-                    height: { xs: 20, sm: 22, md: 26, lg: 30, xl: 34 }, // Увеличиваем для соответствия картинкам
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: {
-                      xs: "12px",
-                      sm: "13px",
-                      md: "16px",
-                      lg: "18px",
-                      xl: "20px",
-                    }, // Увеличиваем шрифт для соответствия картинкам
-                    fontWeight: "bold",
-                    pointerEvents: "none",
-                  }}
                 >
-                  {image.maxUsage - image.usageCount}
+                  <Image
+                    src={image.image}
+                    alt={`image-${image.id}`}
+                    fill
+                    draggable={false}
+                    style={{ objectFit: "cover" }}
+                  />
                 </Box>
               </Box>
             ))}
@@ -835,43 +1124,21 @@ const MEMORY_GAME_PAGE = () => {
           }}
         >
           <Box
-            component="img"
-            src={draggedImage.image}
-            alt="dragging"
             sx={{
               position: "absolute",
               inset: 4,
-              width: "calc(100% - 8px)",
-              height: "calc(100% - 8px)",
-              objectFit: "cover",
               borderRadius: 0.5,
+              overflow: "hidden",
               pointerEvents: "none",
             }}
-          />
-          <Box
-            sx={{
-              position: "absolute",
-              top: 2,
-              right: 2,
-              backgroundColor: "rgba(0, 0, 0, 0.8)",
-              color: "white",
-              borderRadius: "50%",
-              width: { xs: 18, sm: 20, md: 24, lg: 28, xl: 32 }, // Увеличиваем для соответствия картинкам
-              height: { xs: 18, sm: 20, md: 24, lg: 28, xl: 32 }, // Увеличиваем для соответствия картинкам
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: {
-                xs: "11px",
-                sm: "12px",
-                md: "16px",
-                lg: "18px",
-                xl: "20px",
-              }, // Увеличиваем шрифт для соответствия картинкам
-              fontWeight: "bold",
-            }}
           >
-            {draggedImage.maxUsage - draggedImage.usageCount}
+            <Image
+              src={draggedImage.image}
+              alt="dragging"
+              fill
+              draggable={false}
+              style={{ objectFit: "cover" }}
+            />
           </Box>
         </Box>
       )}
