@@ -112,6 +112,11 @@ func main() {
 	// Create handlers
 	rouletteHandler := handlers.NewRouletteHandler(repo, jwtSecret)
 	adminHandler := handlers.NewAdminHandler(repo, wsHub)
+	ocrHandler := handlers.NewOcrHandler()
+	blueSquareHandler := handlers.NewBlueSquareHandler("uploads")
+	
+	// Create Tiny-CNN API handler
+	tinyCNNAPIHandler := handlers.NewTinyCNNAPIHandler(blueSquareHandler)
 
 	// Setup routes
 	router := mux.NewRouter()
@@ -124,6 +129,15 @@ func main() {
 
 	// Admin API routes
 	adminHandler.RegisterAdminRoutes(router)
+
+	// OCR API routes
+	ocrHandler.RegisterRoutes(api)
+	
+	// Blue Square Detection API routes
+	api.HandleFunc("/detect-blue-square", blueSquareHandler.DetectBlueSquare).Methods("POST")
+	
+	// Tiny-CNN API routes
+	tinyCNNAPIHandler.RegisterRoutes(router)
 
 	// WebSocket route
 	router.HandleFunc("/ws", wsHub.HandleWebSocket)
