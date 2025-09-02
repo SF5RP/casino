@@ -50,7 +50,15 @@ export async function POST(request: NextRequest) {
       });
 
       if (!backendResponse.ok) {
-        throw new Error("Backend processing failed");
+        const errorText = await backendResponse.text().catch(() => "");
+        console.error(
+          "Backend processing failed:",
+          backendResponse.status,
+          errorText
+        );
+        throw new Error(
+          `Backend processing failed: ${backendResponse.status} ${errorText}`
+        );
       }
 
       const backendResult = await backendResponse.json();
