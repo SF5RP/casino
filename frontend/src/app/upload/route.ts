@@ -41,10 +41,10 @@ export async function POST(request: NextRequest) {
     backendFormData.append("image", file);
 
     try {
-      // Формируем абсолютный URL для запроса в Go backend
+      // Формируем абсолютный URL для запроса в Go backend через nginx
       const backendEndpoint =
         process.env.NODE_ENV === "production"
-          ? `${request.nextUrl.origin}/api/detect-blue-square`
+          ? "http://127.0.0.1/api/detect-blue-square"
           : "http://127.0.0.1:8011/api/detect-blue-square";
 
       const backendResponse = await fetch(backendEndpoint, {
