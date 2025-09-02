@@ -1,0 +1,131 @@
+/* Math page styles */
+.math-page {
+  min-height: 100vh;
+  background-color: #f9fafb;
+  padding: 2rem 0;
+}
+
+.math-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.math-card {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+}
+
+.math-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.math-subtitle {
+  color: #6b7280;
+  margin-bottom: 2rem;
+}
+
+.dropzone {
+  border: 2px dashed #d1d5db;
+  border-radius: 0.5rem;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.dropzone:hover {
+  border-color: #9ca3af;
+  background-color: #f9fafb;
+}
+
+.dropzone.drag-active {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.dropzone-icon {
+  font-size: 4rem;
+  color: #9ca3af;
+  margin-bottom: 1rem;
+}
+
+.dropzone-text {
+  font-size: 1.125rem;
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-button {
+  display: inline-block;
+  background-color: #2563eb;
+  color: white;
+  padding: 0.5rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.file-button:hover {
+  background-color: #1d4ed8;
+}
+
+.file-info {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+}
+
+.instructions {
+  margin-top: 2rem;
+  background-color: #eff6ff;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+}
+
+.instructions-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1e40af;
+  margin-bottom: 0.75rem;
+}
+
+.instructions-list {
+  color: #1e3a8a;
+}
+
+.instructions-list li {
+  margin-bottom: 0.5rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .math-container {
+    padding: 0 0.5rem;
+  }
+
+  .math-card {
+    padding: 1rem;
+  }
+
+  .math-title {
+    font-size: 1.5rem;
+  }
+
+  .dropzone {
+    padding: 1rem;
+  }
+
+  .dropzone-icon {
+    font-size: 3rem;
+  }
+}

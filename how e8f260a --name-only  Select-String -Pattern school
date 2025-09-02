@@ -1,0 +1,44 @@
+[33mcommit adb67538beb7ed23907ec39a90fadf60c8cf01c3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: randyfp <randyforkp@gmail.com>
+Date:   Tue Sep 2 04:31:04 2025 +0700
+
+    feat: Tiny-CNN integration for OCR digit recognition (code only)
+    
+    - Add Tiny-CNN model integration with Gorgonia ML library
+    - Implement OCR handlers for blue square detection and digit recognition
+    - Add training system for creating and managing training data
+    - Create API endpoints for model training, status, and prediction
+    - Add support for black & white images with digits 1-9 only
+    - Include installation scripts for Windows and Linux
+    - Add comprehensive documentation and quick start guides
+    - Configure Go 1.22 compatibility with environment variables
+    - Implement fallback to Tesseract when Tiny-CNN is unavailable
+    
+    Features:
+    - Tiny-CNN model with 9 classes (digits 1-9)
+    - Training data creation from square images
+    - Model training with configurable parameters
+    - Real-time prediction API
+    - Image preprocessing and enhancement
+    - Comprehensive error handling and logging
+    
+    Documentation:
+    - TINYCNN_README.md - Complete integration guide
+    - TINYCNN_QUICKSTART.md - Quick start instructions
+    - TINYCNN_BW_GUIDE.md - Black & white image specific guide
+    
+    Note: Image files excluded from this commit to keep repository clean
+
+backend/TINYCNN_BW_GUIDE.md
+backend/TINYCNN_QUICKSTART.md
+backend/TINYCNN_README.md
+backend/cmd/server/main.go
+backend/go.mod
+backend/go.sum
+backend/install_tinycnn_deps.ps1
+backend/install_tinycnn_deps.sh
+backend/internal/handlers/blue_square.go
+backend/internal/handlers/tinycnn_api.go
+backend/internal/handlers/tinycnn_ocr.go
+backend/internal/handlers/tinycnn_training.go
+backend/run_casino_backend.bat

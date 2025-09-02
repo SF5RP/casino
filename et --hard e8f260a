@@ -1,0 +1,64 @@
+* [33madb6753[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m feat: Tiny-CNN integration for OCR digit recognition (code only)
+* [33me8f260a[m[33m ([m[1;31morigin/main[m[33m)[m Implement memory game components and hooks for enhanced functionality
+[31m|[m * [33m9942378[m[33m ([m[1;32mskill[m[33m)[m Add skill calculator feature with detailed progress tracking
+[31m|[m[31m/[m  
+* [33mb780697[m[33m ([m[1;31mupstream/main[m[33m, [m[1;31mupstream/HEAD[m[33m)[m Add Content Security Policy headers for iframe support
+* [33m51a9f79[m Enhance memory game animations and styling
+* [33m7a28f8b[m Refactor memory game page and enhance styling
+* [33mc49f362[m Enhance memory game page responsiveness and styling
+* [33m2aa5326[m Refactor layout and components for improved consistency and functionality
+* [33ma9ea397[m ффыву456
+* [33m44c7550[m ыыы
+* [33mc1bdcc9[m Refactor GitHub Actions workflows for frontend deployment and CI
+* [33m95feb6d[m 321
+* [33m8a2eace[m Refactor memory game page layout and improve responsiveness
+* [33m03d2cc1[m gg
+* [33mc6cdd36[m sads
+*   [33m8de7967[m Merge branch 'main' of github.com:SF5RP/casino
+[33m|[m[34m\[m  
+[33m|[m * [33m2ee1119[m Update deploy-frontend.yml
+* [34m|[m [33m873ab82[m йцу
+[34m|[m[34m/[m  
+* [33m10f5db7[m йцуыфв
+* [33m0cc8546[m у
+* [33mb33bcda[m Update package dependencies and improve lock files
+* [33md40b38d[m Add placeholder image generation scripts and memory game assets
+* [33m52b2762[m Update migration SQL for roulette_sessions trigger
+* [33mcd1e56e[m Update database migration files and improve SQL statement handling
+* [33m30fb33c[m Enhance database migration management and testing
+* [33mc9135d5[m Update deployment workflow and add migration troubleshooting documentation
+* [33m70c9b7f[m Update deployment workflow and add migration troubleshooting documentation
+* [33m1e5a1a1[m Enhance WebSocket connection management in useRouletteWebSocket hook
+* [33m14d8d5c[m Implement session history management and number removal in Roulette repository
+* [33m2d3793f[m Refactor API import in rouletteApi.ts for improved clarity
+* [33m77befcc[m Update API configuration and refactor fetch calls for improved flexibility
+* [33m9a342c9[m Update deployment workflow and add environment setup documentation
+* [33mfd75f4b[m Remove proxy settings from Next.js configuration
+* [33m58001db[m Enhance deployment workflow with build verification and improved logging
+* [33me05efc1[m Add production configuration and startup scripts for Next.js application
+* [33m8aaf8c6[m 123
+* [33m5a58fc0[m Refactor deployment workflow for improved readability and efficiency
+* [33m2a905d7[m Enhance CI/CD workflows with improved type checking and conditional file copying
+* [33md07bf6c[m Add CI/CD workflows for frontend application deployment and testing
+* [33m2d73969[m Refactor GitHub Actions deployment workflow for improved clarity and functionality
+* [33me9b3107[m Enhance deployment workflow with script checks and permissions
+* [33mc6fe8da[m Update GitHub Actions workflow to use version 4 of upload and download artifact actions
+* [33m353ed54[m go
+* [33mb52a938[m test
+* [33m7c1b0d7[m Add admin authentication system and simplify admin panel
+* [33m8b65b95[m Remove package.json and package-lock.json from the root directory; update frontend dependencies and configurations
+* [33m95750fc[m Add WebSocket authentication and session management features
+* [33m8c327cf[m node
+* [33m9afb9cf[m Fix WebSocket history loading - add join and update message handlers
+* [33m1252cb8[m Fix frontend configuration for Go backend
+* [33mcb6ea8e[m Restructure monorepo: separate frontend and backend
+* [33mf71b289[m Update Go dependencies after monorepo setup
+* [33mc1df9cb[m Add Go backend and project infrastructure
+* [33me8efc00[m Update frontend: Remove Node.js backend, prepare for Go integration
+* [33m49df48a[m Refactor middleware to disable for the main page and update RouletteTrackerPageContent to improve type safety. Optimize RouletteBoard component by memoizing button styles and enhancing performance. Clean up imports in RouletteCell and BetButton components.
+* [33m7f86173[m Refactor Roulette Tracker components and enhance UI with new features, including a forecast panel, cell tooltips, and improved styling. Optimize performance with memoization and caching strategies for better user experience.
+* [33m06339f6[m Implement modular components for Roulette Tracker, including UI elements, hooks, and utility functions for enhanced gameplay experience and statistics analysis.
+* [33m97663d9[m Remove hardcoded port assignment from WebSocket configuration for production environment
+* [33mac2060f[m Enhance WebSocket URL configuration for production and development environments
+* [33mbf86d31[m Add roulette history management with API endpoints and integrate WebSocket for real-time updates
+* [33m6063d34[m Initial commit: Casino roulette application

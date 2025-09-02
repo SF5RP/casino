@@ -43,25 +43,12 @@ func init() {
 // BlueSquareHandler обрабатывает поиск синих квадратов на изображениях
 type BlueSquareHandler struct {
 	uploadDir string
-	tinyCNN   *TinyCNNOCRHandler // Tiny-CNN OCR обработчик
 }
 
 // NewBlueSquareHandler создает новый экземпляр хендлера
 func NewBlueSquareHandler(uploadDir string) *BlueSquareHandler {
-	// Создаем Tiny-CNN обработчик
-	modelPath := filepath.Join(uploadDir, "models", "tinycnn_model.onnx")
-	tinyCNN := NewTinyCNNOCRHandler(modelPath)
-	
-	// Инициализируем Tiny-CNN
-	if err := tinyCNN.Initialize(); err != nil {
-		log.Printf("[BlueSquare] Warning: failed to initialize Tiny-CNN: %v", err)
-		// Продолжаем без Tiny-CNN, будет использоваться Tesseract
-		tinyCNN = nil
-	}
-	
 	return &BlueSquareHandler{
 		uploadDir: uploadDir,
-		tinyCNN:   tinyCNN,
 	}
 }
 
@@ -72,32 +59,13 @@ type BlueSquareResponse struct {
 	ImageSize    ImageSize         `json:"imageSize"`
 	Message      string           `json:"message"`
 	CroppedImage string           `json:"croppedImage,omitempty"` // путь к обрезанному изображению
+	FinalProcessedImage string    `json:"finalProcessedImage,omitempty"` // путь к финальному обработанному изображению
 	ProcessingSteps ProcessingSteps `json:"processingSteps,omitempty"` // промежуточные изображения
-	OcrMatrix    [][]string       `json:"ocrMatrix,omitempty"` // матрица 8x8 распознанного текста
-	OcrConfidence float64         `json:"ocrConfidence,omitempty"` // общая уверенность OCR
 }
 
-// ProcessingSteps содержит промежуточные изображения на каждом шаге обработки
+// ProcessingSteps содержит только оригинальное изображение
 type ProcessingSteps struct {
 	Original     string `json:"original,omitempty"`     // оригинальное изображение
-	OriginalGray string `json:"originalGray,omitempty"` // оригинальное изображение в grayscale
-	HSVMask      string `json:"hsvMask,omitempty"`      // HSV маска
-	HSVMaskGray  string `json:"hsvMaskGray,omitempty"`  // HSV маска в grayscale
-	Morphology   string `json:"morphology,omitempty"`   // после морфологических операций
-	MorphologyGray string `json:"morphologyGray,omitempty"` // после морфологических операций в grayscale
-	Detected     string `json:"detected,omitempty"`     // найденная область
-	DetectedGray string `json:"detectedGray,omitempty"` // найденная область в grayscale
-	Refined      string `json:"refined,omitempty"`      // уточненные границы
-	RefinedGray  string `json:"refinedGray,omitempty"`  // уточненные границы в grayscale
-	Enhanced     string `json:"enhanced,omitempty"`     // улучшенное изображение
-	EnhancedGray string `json:"enhancedGray,omitempty"` // улучшенное изображение в grayscale
-	// Новые этапы продвинутой предобработки
-	Denoised     string `json:"denoised,omitempty"`     // после шумодава
-	DigitChannel string `json:"digitChannel,omitempty"` // канал цифр
-	CLAHE        string `json:"clahe,omitempty"`        // после CLAHE
-	Sharpened    string `json:"sharpened,omitempty"`    // после усиления резкости
-	Binarized    string `json:"binarized,omitempty"`    // после бинаризации
-	Cleaned      string `json:"cleaned,omitempty"`      // после чистки
 }
 
 // SquareInfo содержит информацию о найденном квадрате
@@ -108,7 +76,6 @@ type SquareInfo struct {
 	Height    int     `json:"height"`
 	Confidence float64 `json:"confidence"`
 	BlueScore  float64 `json:"blueScore"`
-	Strips    []StripInfo `json:"strips,omitempty"` // информация о полосах
 }
 
 // StripInfo содержит информацию о горизонтальной полосе с текстом
@@ -215,17 +182,16 @@ func (h *BlueSquareHandler) findBlueSquares(imagePath string) (*BlueSquareRespon
 	// Инициализируем структуру для промежуточных изображений
 	processingSteps := ProcessingSteps{}
 	
-	// Сохраняем оригинальное изображение в цветном и grayscale вариантах
-	originalPath, originalGrayPath, err := h.saveProcessingStepWithGrayscale(img, "original", filepath.Base(imagePath))
+	// Сохраняем только оригинальное изображение
+	originalPath, err := h.saveOriginalImage(img, filepath.Base(imagePath))
 	if err != nil {
 		log.Printf("[BlueSquare] Failed to save original image: %v", err)
 	} else {
 		processingSteps.Original = originalPath
-		processingSteps.OriginalGray = originalGrayPath
 	}
 
-	// Ищем области по линиям контраста / HSV-маске
-	squares := h.detectContrastRegionsWithSteps(img, &processingSteps)
+	// Ищем области по линиям контраста / HSV-маске (без сохранения промежуточных этапов)
+	squares := h.detectContrastRegions(img)
 
 	response := &BlueSquareResponse{
 		Found: len(squares) > 0,
@@ -293,45 +259,30 @@ func (h *BlueSquareHandler) findBlueSquares(imagePath string) (*BlueSquareRespon
 		}
 		
 		// Обрезаем изображение по лучшему квадрату
-		croppedPath, enhancedPath, enhancedGrayPath, err := h.cropSquareWithEnhancementAndGrayscale(img, bestSquare, filepath.Base(imagePath))
+		croppedPath, err := h.cropSquare(img, bestSquare, filepath.Base(imagePath))
 		if err != nil {
 			log.Printf("[BlueSquare] Failed to crop square: %v", err)
 		} else {
 			response.CroppedImage = croppedPath
-			response.ProcessingSteps.Enhanced = enhancedPath
-			response.ProcessingSteps.EnhancedGray = enhancedGrayPath
 			log.Printf("[BlueSquare] Best square cropped with confidence %.2f", bestSquare.Confidence)
 		}
 		
-		// Извлекаем полосы из лучшего квадрата
-		strips, preprocessingSteps, err := h.extractStripsFromSquare(img, bestSquare, filepath.Base(imagePath))
+		// Сохраняем только финальное обработанное изображение квадрата
+		finalImagePath, err := h.saveFinalProcessedSquare(img, bestSquare, filepath.Base(imagePath))
 		if err != nil {
-			log.Printf("[BlueSquare] Failed to extract strips: %v", err)
+			log.Printf("[BlueSquare] Failed to save processed square: %v", err)
 		} else {
-			// Обновляем информацию о квадрате с полосами
-			bestSquare.Strips = strips
-			response.Squares[0] = bestSquare
-			log.Printf("[BlueSquare] Extracted %d strips from square", len(strips))
-			
-			// Добавляем этапы предобработки к общим этапам обработки
-			if preprocessingSteps != nil {
-				response.ProcessingSteps.Denoised = preprocessingSteps.Denoised
-				response.ProcessingSteps.DigitChannel = preprocessingSteps.DigitChannel
-				response.ProcessingSteps.CLAHE = preprocessingSteps.CLAHE
-				response.ProcessingSteps.Sharpened = preprocessingSteps.Sharpened
-				response.ProcessingSteps.Binarized = preprocessingSteps.Binarized
-				response.ProcessingSteps.Cleaned = preprocessingSteps.Cleaned
-			}
-			
-			// Выполняем OCR на полном изображении квадрата (сначала пробуем Tiny-CNN)
-			ocrMatrix, ocrConfidence := h.performTinyCNNOCR(img, bestSquare, filepath.Base(imagePath))
-			response.OcrMatrix = ocrMatrix
-			response.OcrConfidence = ocrConfidence
-			log.Printf("[BlueSquare] Created OCR matrix with confidence %.2f", ocrConfidence)
+			// Сохраняем путь к финальному обработанному изображению
+			response.FinalProcessedImage = finalImagePath
+			log.Printf("[BlueSquare] Final processed image saved successfully")
 		}
 	} else {
 		response.Message = "No blue/purple squares found"
 	}
+
+	// Очищаем временные файлы после завершения обработки
+	// Оставляем только оригинальный файл и финальный обработанный файл
+	h.cleanupTempFiles(originalPath, response.FinalProcessedImage)
 
 	return response, nil
 }
@@ -1104,16 +1055,7 @@ func (h *BlueSquareHandler) detectContrastRegionsFallbackWithSteps(img image.Ima
 	// HSV-маска (фиолетовый/сине-фиолетовый)
 	hsvMask := h.createHSVMask(scaled, centerHue)
 	
-	// Сохраняем HSV маску если нужно
-	if processingSteps != nil {
-		hsvMaskPath, hsvMaskGrayPath, err := h.saveProcessingStepWithGrayscale(hsvMask, "hsv_mask", "hsv_mask.png")
-		if err != nil {
-			log.Printf("[BlueSquare] Failed to save HSV mask: %v", err)
-		} else {
-			processingSteps.HSVMask = hsvMaskPath
-			processingSteps.HSVMaskGray = hsvMaskGrayPath
-		}
-	}
+	// HSV маска создана, но не сохраняем промежуточные этапы
 
 	// Морфологическое закрытие, чтобы залить сетку и цифры
 	kernel := int(math.Max(1, math.Round(float64(min(sb.Dx(), sb.Dy()))/180.0)))
@@ -1123,16 +1065,7 @@ func (h *BlueSquareHandler) detectContrastRegionsFallbackWithSteps(img image.Ima
 	shrink := int(math.Max(1, float64(kernel)/3.0))
 	closedMask = h.morphErodeSimple(closedMask, shrink)
 	
-	// Сохраняем результат морфологических операций если нужно
-	if processingSteps != nil {
-		morphPath, morphGrayPath, err := h.saveProcessingStepWithGrayscale(closedMask, "morphology", "morphology.png")
-		if err != nil {
-			log.Printf("[BlueSquare] Failed to save morphology result: %v", err)
-		} else {
-			processingSteps.Morphology = morphPath
-			processingSteps.MorphologyGray = morphGrayPath
-		}
-	}
+	// Морфологические операции выполнены, но не сохраняем промежуточные этапы
 
 	// Ищем области на уменьшенном изображении
 	smallRects := h.findSquareRegions(closedMask)
@@ -1159,18 +1092,7 @@ func (h *BlueSquareHandler) detectContrastRegionsFallbackWithSteps(img image.Ima
 
 	var squares []SquareInfo
 	if bestArea > 0 {
-		// Сохраняем изображение найденной области если нужно
-		if processingSteps != nil {
-			// Создаем изображение с выделенной областью
-			detectedImg := h.createDetectedRegionImage(scaled, bestRect)
-			detectedPath, detectedGrayPath, err := h.saveProcessingStepWithGrayscale(detectedImg, "detected", "detected_region.png")
-			if err != nil {
-				log.Printf("[BlueSquare] Failed to save detected region: %v", err)
-			} else {
-				processingSteps.Detected = detectedPath
-				processingSteps.DetectedGray = detectedGrayPath
-			}
-		}
+		// Найденная область определена, но не сохраняем промежуточные этапы
 		
 		diag := math.Hypot(float64(bestRect.Dx()), float64(bestRect.Dy()))
 		radius := int(math.Max(1, math.Round(diag/200.0)))
@@ -1196,17 +1118,7 @@ func (h *BlueSquareHandler) detectContrastRegionsFallbackWithSteps(img image.Ima
 			)
 		}
 		
-		// Сохраняем изображение с уточненными границами если нужно
-		if processingSteps != nil {
-			refinedImg := h.createDetectedRegionImage(img, refined)
-			refinedPath, refinedGrayPath, err := h.saveProcessingStepWithGrayscale(refinedImg, "refined", "refined_bounds.png")
-			if err != nil {
-				log.Printf("[BlueSquare] Failed to save refined bounds: %v", err)
-			} else {
-				processingSteps.Refined = refinedPath
-				processingSteps.RefinedGray = refinedGrayPath
-			}
-		}
+		// Уточненные границы определены, но не сохраняем промежуточные этапы
 
 		width := refined.Dx()
 		height := refined.Dy()
@@ -1905,89 +1817,26 @@ func (h *BlueSquareHandler) createDetectedRegionImage(img image.Image, rect imag
 	return debugImg
 }
 
-// extractStripsFromSquare разделяет квадрат на 8 горизонтальных полос и извлекает текст
-func (h *BlueSquareHandler) extractStripsFromSquare(img image.Image, square SquareInfo, filename string) ([]StripInfo, *PreprocessingSteps, error) {
+// saveFinalProcessedSquare сохраняет только финальное обработанное изображение квадрата
+func (h *BlueSquareHandler) saveFinalProcessedSquare(img image.Image, square SquareInfo, filename string) (string, error) {
 	// Создаем прямоугольник для обрезки
 	rect := image.Rect(square.X, square.Y, square.X+square.Width, square.Y+square.Height)
 	
 	// Обрезаем изображение по квадрату
 	croppedImg := imaging.Crop(img, rect)
 	
-	// Применяем продвинутую предобработку для лучшего распознавания цифр с сохранением этапов
-	preprocessedImg, preprocessingSteps, err := h.advancedPreprocessingWithSteps(croppedImg, filename)
+	// Применяем продвинутую предобработку без сохранения промежуточных этапов
+	preprocessedImg := h.advancedPreprocessing(croppedImg)
+	
+	// Сохраняем финальное обработанное изображение
+	finalPath, err := h.saveFinalProcessedImage(preprocessedImg, filename)
 	if err != nil {
-		log.Printf("[BlueSquare] Failed to preprocess image: %v", err)
-		// Fallback к простой предобработке
-		preprocessedImg = h.advancedPreprocessing(croppedImg)
-		preprocessingSteps = nil
+		log.Printf("[BlueSquare] Failed to save final processed image: %v", err)
+		return "", err
 	}
 	
-	// Разделяем на 8 полос
-	numStrips := 8
-	stripHeight := preprocessedImg.Bounds().Dy() / numStrips
-	
-	var strips []StripInfo
-	
-	for i := 0; i < numStrips; i++ {
-		// Вычисляем границы полосы с учетом возможных вариаций высоты
-		stripY := i * stripHeight
-		stripHeightActual := stripHeight
-		
-		// Добавляем небольшой отступ для компенсации "гуляния" букв по высоте
-		overlap := stripHeight / 8 // 12.5% перекрытия
-		if i > 0 {
-			stripY -= overlap / 2
-			stripHeightActual += overlap / 2
-		}
-		if i < numStrips-1 {
-			stripHeightActual += overlap / 2
-		}
-		
-		// Ограничиваем границы изображением
-		if stripY < 0 {
-			stripHeightActual += stripY
-			stripY = 0
-		}
-		if stripY+stripHeightActual > preprocessedImg.Bounds().Dy() {
-			stripHeightActual = preprocessedImg.Bounds().Dy() - stripY
-		}
-		
-		// Создаем прямоугольник для полосы
-		stripRect := image.Rect(0, stripY, preprocessedImg.Bounds().Dx(), stripY+stripHeightActual)
-		
-		// Обрезаем полосу из предобработанного изображения
-		stripImg := imaging.Crop(preprocessedImg, stripRect)
-		
-		// Сохраняем изображение полосы
-		stripPath, err := h.saveStripImage(stripImg, i, filename)
-		if err != nil {
-			log.Printf("[BlueSquare] Failed to save strip %d: %v", i, err)
-			continue
-		}
-		
-		// Извлекаем текст из полосы с OCR
-		text, confidence := h.extractTextFromStrip(stripImg)
-		
-		// Дополнительно выполняем OCR на полосе
-		ocrText, ocrConfidence := h.performOCROnStrip(stripImg)
-		
-		strip := StripInfo{
-			Index:         i,
-			Y:             square.Y + stripY,
-			Height:        stripHeightActual,
-			Text:          text,
-			Confidence:    confidence,
-			ImagePath:     stripPath,
-			OcrText:       ocrText,
-			OcrConfidence: ocrConfidence,
-		}
-		
-		strips = append(strips, strip)
-		log.Printf("[BlueSquare] Strip %d: Y=%d, Height=%d, Text='%s', Confidence=%.2f", 
-			i, strip.Y, strip.Height, strip.Text, strip.Confidence)
-	}
-	
-	return strips, preprocessingSteps, nil
+	log.Printf("[BlueSquare] Final processed image saved to: %s", finalPath)
+	return finalPath, nil
 }
 
 // saveStripImage сохраняет изображение полосы
@@ -2016,6 +1865,62 @@ func (h *BlueSquareHandler) saveStripImage(stripImg image.Image, stripIndex int,
 	
 	// Возвращаем путь относительно public для фронтенда
 	return filepath.Join("/uploads", stripFilename), nil
+}
+
+// saveOriginalImage сохраняет оригинальное изображение
+func (h *BlueSquareHandler) saveOriginalImage(img image.Image, filename string) (string, error) {
+	// Создаем уникальное имя с timestamp
+	timestamp := time.Now().Format("20060102_150405")
+	originalFilename := fmt.Sprintf("original_%s_%s", timestamp, filename)
+	
+	// Сохраняем в папку фронтенда для доступа через Next.js
+	frontendUploadsDir := "../frontend/public/uploads"
+	originalPath := filepath.Join(frontendUploadsDir, originalFilename)
+	
+	// Создаем директорию если не существует
+	err := os.MkdirAll(frontendUploadsDir, 0755)
+	if err != nil {
+		return "", fmt.Errorf("failed to create frontend uploads dir: %w", err)
+	}
+	
+	// Сохраняем оригинальное изображение
+	err = imaging.Save(img, originalPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to save original image: %w", err)
+	}
+	
+	log.Printf("[BlueSquare] Original image saved to: %s", originalPath)
+	
+	// Возвращаем путь для фронтенда
+	return filepath.Join("/uploads", originalFilename), nil
+}
+
+// saveFinalProcessedImage сохраняет финальное обработанное изображение
+func (h *BlueSquareHandler) saveFinalProcessedImage(processedImg image.Image, filename string) (string, error) {
+	// Создаем уникальное имя с timestamp
+	timestamp := time.Now().Format("20060102_150405")
+	finalFilename := fmt.Sprintf("processed_%s_%s", timestamp, filename)
+	
+	// Сохраняем в папку фронтенда для доступа через Next.js
+	frontendUploadsDir := "../frontend/public/uploads"
+	finalPath := filepath.Join(frontendUploadsDir, finalFilename)
+	
+	// Создаем директорию если не существует
+	err := os.MkdirAll(frontendUploadsDir, 0755)
+	if err != nil {
+		return "", fmt.Errorf("failed to create frontend uploads dir: %w", err)
+	}
+	
+	// Сохраняем финальное обработанное изображение
+	err = imaging.Save(processedImg, finalPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to save final processed image: %w", err)
+	}
+	
+	log.Printf("[BlueSquare] Final processed image saved to: %s", finalPath)
+	
+	// Возвращаем путь для фронтенда
+	return filepath.Join("/uploads", finalFilename), nil
 }
 
 // extractTextFromStrip извлекает текст из полосы (заглушка для OCR)
@@ -2167,30 +2072,10 @@ func (h *BlueSquareHandler) createMatrixFromStrips(strips []StripInfo) ([][]stri
 	return matrix, avgConfidence
 }
 
-// performTinyCNNOCR выполняет OCR с использованием Tiny-CNN
+// performTinyCNNOCR выполняет OCR с использованием Tesseract (Tiny-CNN удален)
 func (h *BlueSquareHandler) performTinyCNNOCR(img image.Image, square SquareInfo, filename string) ([][]string, float64) {
-	if h.tinyCNN == nil {
-		log.Printf("[BlueSquare] Tiny-CNN not available, falling back to Tesseract")
-		return h.performOCROnFullSquare(img, square, filename)
-	}
-	
-	log.Printf("[BlueSquare TinyCNN] Starting Tiny-CNN OCR recognition")
-	
-	// Создаем прямоугольник для обрезки
-	rect := image.Rect(square.X, square.Y, square.X+square.Width, square.Y+square.Height)
-	croppedImg := imaging.Crop(img, rect)
-	
-	// Применяем предобработку для Tiny-CNN
-	processedImg := h.preprocessForTinyCNN(croppedImg)
-	
-	// Вычисляем размер ячейки (8x8 сетка)
-	cellSize := square.Width / 8
-	
-	// Распознаем сетку с помощью Tiny-CNN
-	matrix, confidence := h.tinyCNN.RecognizeGrid(processedImg, cellSize)
-	
-	log.Printf("[BlueSquare TinyCNN] Recognition completed with confidence: %.2f", confidence)
-	return matrix, confidence
+	log.Printf("[BlueSquare] Using Tesseract OCR (Tiny-CNN removed)")
+	return h.performOCROnFullSquare(img, square, filename)
 }
 
 // preprocessForTinyCNN предобрабатывает изображение для Tiny-CNN
@@ -2679,9 +2564,6 @@ func (h *BlueSquareHandler) cropSquare(img image.Image, square SquareInfo, filen
 	// Обрезаем изображение
 	croppedImg := imaging.Crop(img, rect)
 	
-	// УЛУЧШЕНИЕ КАЧЕСТВА: применяем предобработку для лучшего качества
-	enhancedImg := h.enhanceCroppedImage(croppedImg)
-	
 	// Создаем уникальное имя с timestamp
 	timestamp := time.Now().Format("20060102_150405")
 	croppedFilename := fmt.Sprintf("cropped_%s_%dx%d_conf%.0f_%s", 
@@ -2697,13 +2579,13 @@ func (h *BlueSquareHandler) cropSquare(img image.Image, square SquareInfo, filen
 		return "", fmt.Errorf("failed to create frontend uploads dir: %w", err)
 	}
 	
-	// Сохраняем улучшенное обрезанное изображение
-	err = imaging.Save(enhancedImg, croppedPath)
+	// Сохраняем обрезанное изображение без улучшений
+	err = imaging.Save(croppedImg, croppedPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to save enhanced cropped image: %w", err)
+		return "", fmt.Errorf("failed to save cropped image: %w", err)
 	}
 	
-	log.Printf("[BlueSquare] Enhanced cropped square saved to: %s", croppedPath)
+	log.Printf("[BlueSquare] Cropped square saved to: %s", croppedPath)
 	
 	// Возвращаем путь относительно public для фронтенда
 	return filepath.Join("/uploads", croppedFilename), nil
@@ -4764,4 +4646,67 @@ func (h *BlueSquareHandler) parseInt(s string) int {
 		return i
 	}
 	return 0
+}
+
+// cleanupTempFiles удаляет все временные файлы, созданные в процессе обработки
+// Оставляет только оригинальный файл и финальный обработанный файл
+func (h *BlueSquareHandler) cleanupTempFiles(originalPath, finalProcessedPath string) {
+	log.Printf("[BlueSquare] Starting cleanup of temporary files...")
+	
+	// Получаем список всех файлов в директории загрузок
+	files, err := filepath.Glob(filepath.Join(h.uploadDir, "*"))
+	if err != nil {
+		log.Printf("[BlueSquare] Error reading upload directory: %v", err)
+		return
+	}
+	
+	// Паттерны временных файлов для удаления
+	tempPatterns := []string{
+		"temp_*",
+		"edges_debug_*",
+		"*_row_*.bmp",
+		"*_r*c*.bmp",
+	}
+	
+	deletedCount := 0
+	for _, file := range files {
+		// Пропускаем оригинальный и финальный обработанный файлы
+		if file == originalPath || file == finalProcessedPath {
+			continue
+		}
+		
+		// Проверяем, является ли файл временным
+		shouldDelete := false
+		filename := filepath.Base(file)
+		
+		for _, pattern := range tempPatterns {
+			matched, err := filepath.Match(pattern, filename)
+			if err == nil && matched {
+				shouldDelete = true
+				break
+			}
+		}
+		
+		// Дополнительная проверка на временные файлы по расширению и содержимому имени
+		if !shouldDelete {
+			// Проверяем файлы с временными именами (содержат timestamp или temp)
+			if strings.Contains(filename, "temp_") || 
+			   strings.Contains(filename, "debug_") ||
+			   strings.Contains(filename, "_row_") ||
+			   strings.Contains(filename, "_r") && strings.Contains(filename, "c") {
+				shouldDelete = true
+			}
+		}
+		
+		if shouldDelete {
+			if err := os.Remove(file); err != nil {
+				log.Printf("[BlueSquare] Failed to delete temp file %s: %v", file, err)
+			} else {
+				log.Printf("[BlueSquare] Deleted temp file: %s", filename)
+				deletedCount++
+			}
+		}
+	}
+	
+	log.Printf("[BlueSquare] Cleanup completed. Deleted %d temporary files", deletedCount)
 }
