@@ -41,13 +41,23 @@ export async function POST(request: NextRequest) {
     backendFormData.append("image", file);
 
     try {
-      const backendResponse = await fetch(
-        "http://localhost:8011/api/detect-blue-square",
-        {
-          method: "POST",
-          body: backendFormData,
-        }
-      );
+      // Получаем URL бэкенда из переменных окружения
+      const backendUrl =
+        process.env.BACKEND_URL ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        "http://127.0.0.1:8011";
+      const backendEndpoint = `${backendUrl.replace(
+        "/api",
+        ""
+      )}/api/detect-blue-square`;
+
+      console.log("Backend URL:", backendUrl);
+      console.log("Backend Endpoint:", backendEndpoint);
+
+      const backendResponse = await fetch(backendEndpoint, {
+        method: "POST",
+        body: backendFormData,
+      });
 
       if (!backendResponse.ok) {
         throw new Error("Backend processing failed");
