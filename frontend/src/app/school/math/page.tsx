@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Box,
   Container,
@@ -53,7 +53,12 @@ interface UploadedFile {
 export default function MathPage() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const theme = useTheme();
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const processFile = async (file: File) => {
     const fileId = Math.random().toString(36).substr(2, 9);
@@ -145,6 +150,22 @@ export default function MathPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  if (!isClient) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          backgroundColor: "background.default",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Typography variant="h6">Загрузка...</Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box
       sx={{
@@ -158,7 +179,7 @@ export default function MathPage() {
       <Container maxWidth="lg" sx={{ flex: 1, py: 4 }}>
         <Grid container spacing={4}>
           {/* Upload Area */}
-          <Grid item xs={12} md={uploadedFiles.length > 0 ? 6 : 12}>
+          <Grid item xs={12} md={(uploadedFiles?.length || 0) > 0 ? 6 : 12}>
             <Zoom in timeout={800}>
               <Paper
                 {...getRootProps()}
@@ -179,7 +200,8 @@ export default function MathPage() {
                     borderColor: theme.palette.primary.main,
                     backgroundColor: alpha(theme.palette.primary.main, 0.05),
                   },
-                  minHeight: uploadedFiles.length > 0 ? "300px" : "400px",
+                  minHeight:
+                    (uploadedFiles?.length || 0) > 0 ? "300px" : "400px",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "center",
@@ -234,15 +256,15 @@ export default function MathPage() {
           </Grid>
 
           {/* Results */}
-          {uploadedFiles.length > 0 && (
+          {(uploadedFiles?.length || 0) > 0 && (
             <Grid item xs={12} md={6}>
               <Fade in timeout={1200}>
                 <Paper sx={{ p: 3, height: "fit-content" }}>
                   <Typography variant="h5" gutterBottom>
-                    Результаты анализа ({uploadedFiles.length})
+                    Результаты анализа ({uploadedFiles?.length || 0})
                   </Typography>
                   <Box sx={{ maxHeight: "400px", overflow: "auto" }}>
-                    {uploadedFiles.map((file, index) => (
+                    {uploadedFiles?.map((file, index) => (
                       <Zoom in timeout={1000 + index * 200} key={file.id}>
                         <Card sx={{ mb: 2 }}>
                           <CardContent>
