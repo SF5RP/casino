@@ -74,7 +74,7 @@ export default function MathPage() {
       const formData = new FormData();
       formData.append("image", file);
 
-      const response = await fetch("/api/upload", {
+      const response = await fetch("/upload", {
         method: "POST",
         body: formData,
       });
