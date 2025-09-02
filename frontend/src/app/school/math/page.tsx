@@ -301,7 +301,8 @@ export default function MathPage() {
                                   Обработка...
                                 </Typography>
                               </Box>
-                            ) : file.processing ? (
+                            ) : file.processing &&
+                              file.processing !== undefined ? (
                               <Box>
                                 <Box
                                   display="flex"

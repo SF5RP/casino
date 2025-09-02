@@ -185,7 +185,7 @@ func main() {
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8011"
 	}
 
 	// Start server
@@ -406,7 +406,7 @@ func printHelp() {
 	fmt.Printf("  DB_PASSWORD    Database password (default: casino_password)\n")
 	fmt.Printf("  DB_NAME        Database name (default: casino_db)\n")
 	fmt.Printf("  DB_SSL_MODE    SSL mode (default: disable)\n")
-	fmt.Printf("  PORT           Server port (default: 8080)\n\n")
+	fmt.Printf("  PORT           Server port (default: 8011)\n\n")
 	fmt.Printf("API Endpoints:\n")
 	fmt.Printf("  GET  /health                      Health check\n")
 	fmt.Printf("  GET  /api/migrations/status       Migration status\n")

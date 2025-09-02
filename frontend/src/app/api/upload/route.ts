@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const backendResponse = await fetch(
-        "http://localhost:8080/api/detect-blue-square",
+        "http://localhost:8011/api/detect-blue-square",
         {
           method: "POST",
           body: backendFormData,
