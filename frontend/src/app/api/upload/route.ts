@@ -64,30 +64,8 @@ export async function POST(request: NextRequest) {
       const backendResult = await backendResponse.json();
       console.log("Backend processing result:", backendResult);
 
-      // Очищаем промежуточные изображения после обработки
-      try {
-        const cleanupResponse = await fetch(
-          `${request.nextUrl.origin}/api/cleanup`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              originalPath: backendResult.processingSteps?.original,
-              finalProcessedPath: backendResult.finalProcessedImage,
-            }),
-          }
-        );
-
-        if (cleanupResponse.ok) {
-          const cleanupResult = await cleanupResponse.json();
-          console.log("Frontend cleanup result:", cleanupResult);
-        }
-      } catch (cleanupError) {
-        console.error("Frontend cleanup error:", cleanupError);
-        // Не прерываем основной процесс из-за ошибки очистки
-      }
+      // Cleanup отключен - временные файлы не создаются в продакшене
+      console.log("Cleanup skipped - no temporary files to clean");
 
       return NextResponse.json({
         success: true,
