@@ -9,8 +9,8 @@ echo "🚀 Installing Casino Backend Service..."
 
 # Configuration
 SERVICE_NAME="casino-backend"
-SERVICE_USER="casino"
-SERVICE_GROUP="casino"
+SERVICE_USER="deploy"
+SERVICE_GROUP="deploy"
 INSTALL_DIR="/opt/casino-backend"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 BINARY_NAME="casino-server"
@@ -48,10 +48,10 @@ fi
 
 log_info "Go version: $(go version)"
 
-# Create service user and group
+# Ensure service user exists (skip creation if already exists)
 if ! id "$SERVICE_USER" &>/dev/null; then
-    log_info "Creating user $SERVICE_USER..."
-    useradd --system --no-create-home --shell /bin/false $SERVICE_USER
+    log_warn "User $SERVICE_USER does not exist. Creating a regular user..."
+    useradd -m -s /bin/bash $SERVICE_USER || true
 else
     log_info "User $SERVICE_USER already exists"
 fi

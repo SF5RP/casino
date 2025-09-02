@@ -5,8 +5,8 @@ Wants=postgresql.service
 
 [Service]
 Type=simple
-User=casino
-Group=casino
+User=deploy
+Group=deploy
 WorkingDirectory=/opt/casino-backend
 ExecStart=/opt/casino-backend/casino-server
 Restart=always
@@ -16,7 +16,7 @@ StandardError=journal
 SyslogIdentifier=casino-backend
 
 # Environment variables
-Environment=PORT=8080
+Environment=PORT=8011
 Environment=DB_HOST=localhost
 Environment=DB_PORT=5432
 Environment=DB_USER=casino_user

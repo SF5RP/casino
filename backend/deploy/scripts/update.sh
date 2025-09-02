@@ -9,7 +9,7 @@ echo "🔄 Updating Casino Backend Service..."
 
 # Configuration
 SERVICE_NAME="casino-backend"
-SERVICE_USER="casino"
+SERVICE_USER="deploy"
 INSTALL_DIR="/opt/casino-backend"
 BINARY_NAME="casino-server"
 
