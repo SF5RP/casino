@@ -311,35 +311,37 @@ export default function MathPage() {
                                 >
                                   <Chip
                                     icon={
-                                      file.processing.found ? (
+                                      file.processing?.found ? (
                                         <CheckCircle />
                                       ) : (
                                         <ErrorIcon />
                                       )
                                     }
                                     label={
-                                      file.processing.found
-                                        ? `Найдено: ${file.processing.count}`
+                                      file.processing?.found
+                                        ? `Найдено: ${
+                                            file.processing?.count || 0
+                                          }`
                                         : "Не найдено"
                                     }
                                     color={
-                                      file.processing.found
+                                      file.processing?.found
                                         ? "success"
                                         : "error"
                                     }
                                     variant="outlined"
                                   />
-                                  {file.processing.error && (
+                                  {file.processing?.error && (
                                     <Chip
                                       icon={<ErrorIcon />}
-                                      label={file.processing.error}
+                                      label={file.processing?.error}
                                       color="error"
                                       size="small"
                                     />
                                   )}
                                 </Box>
 
-                                {file.processing.squares.length > 0 && (
+                                {file.processing?.squares?.length > 0 && (
                                   <Box>
                                     <Typography
                                       variant="subtitle2"
@@ -348,7 +350,7 @@ export default function MathPage() {
                                       Найденные квадраты:
                                     </Typography>
                                     <Grid container spacing={1}>
-                                      {file.processing.squares.map(
+                                      {file.processing?.squares?.map(
                                         (square, idx) => (
                                           <Grid item xs={6} key={idx}>
                                             <Card
@@ -387,7 +389,7 @@ export default function MathPage() {
                                   </Box>
                                 )}
 
-                                {file.processing.processedImage && (
+                                {file.processing?.processedImage && (
                                   <Box mt={2}>
                                     <Typography
                                       variant="subtitle2"
@@ -399,7 +401,7 @@ export default function MathPage() {
                                       variant="caption"
                                       color="text.secondary"
                                     >
-                                      {file.processing.processedImage}
+                                      {file.processing?.processedImage}
                                     </Typography>
                                   </Box>
                                 )}
