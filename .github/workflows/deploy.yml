@@ -102,14 +102,26 @@ jobs:
           echo "🔄 Stopping casino-backend service..."
           sudo systemctl stop casino-backend.service || true
 
+          echo "📦 Ensuring install directory..."
+          sudo mkdir -p /opt/casino-backend
+          sudo chown -R $USER:$USER /opt/casino-backend
+
           echo "📦 Replacing files atomically..."
-          mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/${{ env.BINARY_NAME }}.tmp /home/${{ secrets.SERVER_USER }}/casino-backend/${{ env.BINARY_NAME }}
-          mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/env.example.tmp /home/${{ secrets.SERVER_USER }}/casino-backend/env.example
-          mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/DEPLOYMENT.md.tmp /home/${{ secrets.SERVER_USER }}/casino-backend/DEPLOYMENT.md
-          mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/README.md.tmp /home/${{ secrets.SERVER_USER }}/casino-backend/README.md
+          sudo mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/${{ env.BINARY_NAME }}.tmp /opt/casino-backend/${{ env.BINARY_NAME }}
+          sudo mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/env.example.tmp /opt/casino-backend/env.example || true
+          sudo mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/DEPLOYMENT.md.tmp /opt/casino-backend/DEPLOYMENT.md || true
+          sudo mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/README.md.tmp /opt/casino-backend/README.md || true
+
+          echo "🗂 Ensuring uploads directory..."
+          sudo mkdir -p /opt/casino-backend/uploads
+          sudo chown -R $USER:$USER /opt/casino-backend/uploads
+          sudo chmod 775 /opt/casino-backend/uploads
 
           echo "🔐 Setting permissions..."
-          chmod +x /home/${{ secrets.SERVER_USER }}/casino-backend/${{ env.BINARY_NAME }}
+          sudo chmod +x /opt/casino-backend/${{ env.BINARY_NAME }}
+
+          echo "♻️ Reloading systemd units..."
+          sudo systemctl daemon-reload
 
           echo "🚀 Starting casino-backend service..."
           sudo systemctl start casino-backend.service
