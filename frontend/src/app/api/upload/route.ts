@@ -41,18 +41,11 @@ export async function POST(request: NextRequest) {
     backendFormData.append("image", file);
 
     try {
-      // Получаем URL бэкенда из переменных окружения
-      const backendUrl =
-        process.env.BACKEND_URL ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        "http://127.0.0.1:8011";
-      const backendEndpoint = `${backendUrl.replace(
-        "/api",
-        ""
-      )}/api/detect-blue-square`;
-
-      console.log("Backend URL:", backendUrl);
-      console.log("Backend Endpoint:", backendEndpoint);
+      // Формируем абсолютный URL для запроса в Go backend
+      const backendEndpoint =
+        process.env.NODE_ENV === "production"
+          ? `${request.nextUrl.origin}/api/detect-blue-square`
+          : "http://127.0.0.1:8011/api/detect-blue-square";
 
       const backendResponse = await fetch(backendEndpoint, {
         method: "POST",
