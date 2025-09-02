@@ -117,6 +117,12 @@ jobs:
           sudo chown -R $USER:$USER /opt/casino-backend/uploads
           sudo chmod 775 /opt/casino-backend/uploads
 
+          echo "🗂 Creating frontend symlink for image processing..."
+          sudo mkdir -p /home/$USER/casino-frontend/public/uploads
+          sudo chown -R $USER:$USER /home/$USER/casino-frontend/public/uploads
+          sudo chmod 775 /home/$USER/casino-frontend/public/uploads
+          sudo ln -sf /home/$USER/casino-frontend /opt/frontend
+
           echo "🔐 Setting permissions..."
           sudo chmod +x /opt/casino-backend/${{ env.BINARY_NAME }}
 
