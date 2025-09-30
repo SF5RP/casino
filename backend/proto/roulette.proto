@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package roulette;
+
+option go_package = "casino-backend/proto/roulette";
+
+import "google/protobuf/timestamp.proto";
+
+// Сервис для работы с рулеткой через gRPC
+service RouletteService {
+  // Аутентификация в комнате
+  rpc AuthenticateRoom(AuthenticateRoomRequest) returns (AuthenticateRoomResponse);
+  
+  // Получить историю чисел
+  rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+  
+  // Сохранить новое число
+  rpc SaveNumber(SaveNumberRequest) returns (SaveNumberResponse);
+  
+  // Обновить историю чисел
+  rpc UpdateHistory(UpdateHistoryRequest) returns (UpdateHistoryResponse);
+  
+  // Получить все сессии
+  rpc GetSessions(GetSessionsRequest) returns (GetSessionsResponse);
+  
+  // Потоковая передача чисел в реальном времени
+  rpc StreamNumbers(StreamNumbersRequest) returns (stream NumberStream);
+}
+
+// Запрос на аутентификацию в комнате
+message AuthenticateRoomRequest {
+  string key = 1;
+  string password = 2;
+}
+
+// Ответ на аутентификацию
+message AuthenticateRoomResponse {
+  bool success = 1;
+  string token = 2;
+  string message = 3;
+}
+
+// Запрос на получение истории
+message GetHistoryRequest {
+  string key = 1;
+  string token = 2; // JWT токен для авторизации
+}
+
+// Ответ с историей
+message GetHistoryResponse {
+  bool success = 1;
+  repeated RouletteNumber history = 2;
+  string message = 3;
+}
+
+// Запрос на сохранение числа
+message SaveNumberRequest {
+  string key = 1;
+  RouletteNumber number = 2;
+  string token = 3; // JWT токен для авторизации
+}
+
+// Ответ на сохранение числа
+message SaveNumberResponse {
+  bool success = 1;
+  RouletteSession session = 2;
+  string message = 3;
+}
+
+// Запрос на обновление истории
+message UpdateHistoryRequest {
+  string key = 1;
+  repeated RouletteNumber history = 2;
+  string token = 3; // JWT токен для авторизации
+}
+
+// Ответ на обновление истории
+message UpdateHistoryResponse {
+  bool success = 1;
+  RouletteSession session = 2;
+  string message = 3;
+}
+
+// Запрос на получение всех сессий
+message GetSessionsRequest {
+  string token = 1; // JWT токен для авторизации (админ)
+}
+
+// Ответ с сессиями
+message GetSessionsResponse {
+  bool success = 1;
+  repeated RouletteSession sessions = 2;
+  string message = 3;
+}
+
+// Запрос на потоковую передачу чисел
+message StreamNumbersRequest {
+  string key = 1;
+  string token = 2; // JWT токен для авторизации
+}
+
+// Поток чисел в реальном времени
+message NumberStream {
+  oneof event {
+    RouletteNumber new_number = 1;
+    NumberHistoryUpdate history_update = 2;
+    ErrorEvent error = 3;
+    PingEvent ping = 4;
+  }
+}
+
+// Обновление истории чисел
+message NumberHistoryUpdate {
+  repeated RouletteNumber history = 1;
+  int32 version = 2;
+  bool full_sync = 3;
+}
+
+// Событие ошибки
+message ErrorEvent {
+  string message = 1;
+  string code = 2;
+}
+
+// Ping событие для поддержания соединения
+message PingEvent {
+  google.protobuf.Timestamp timestamp = 1;
+}
+
+// Представление числа рулетки
+message RouletteNumber {
+  oneof value {
+    int32 int_value = 1; // 0-36
+    string string_value = 2; // "00"
+  }
+}
+
+// Сессия рулетки
+message RouletteSession {
+  int32 id = 1;
+  string key = 2;
+  repeated RouletteNumber history = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
