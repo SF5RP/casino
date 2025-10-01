@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -419,25 +420,28 @@ func printHelp() {
 
 // CORS middleware
 func corsMiddleware(next http.Handler) http.Handler {
-    allowedOrigin := os.Getenv("FRONTEND_URL")
-    if allowedOrigin == "" {
-        allowedOrigin = "*"
-    }
+    allowedOrigin := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
 
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         origin := r.Header.Get("Origin")
-        if allowedOrigin == "*" || origin == allowedOrigin {
-            w.Header().Set("Access-Control-Allow-Origin", origin)
-        } else if allowedOrigin == "*" {
-            w.Header().Set("Access-Control-Allow-Origin", "*")
-        }
+
+        // Always vary by Origin because response headers depend on it
         w.Header().Set("Vary", "Origin")
-        w.Header().Set("Access-Control-Allow-Credentials", "true")
         w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
         w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
+        if allowedOrigin != "" && origin == allowedOrigin {
+            // Strict allowlist mode with credentials
+            w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+            w.Header().Set("Access-Control-Allow-Credentials", "true")
+        } else if allowedOrigin == "" {
+            // Safe fallback: allow any origin but without credentials
+            w.Header().Set("Access-Control-Allow-Origin", "*")
+            // Do NOT set Access-Control-Allow-Credentials in this mode
+        }
+
         if r.Method == http.MethodOptions {
-            w.WriteHeader(http.StatusOK)
+            w.WriteHeader(http.StatusNoContent)
             return
         }
 
