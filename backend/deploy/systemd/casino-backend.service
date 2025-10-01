@@ -15,14 +15,8 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=casino-backend
 
-# Environment variables
-Environment=PORT=8011
-Environment=DB_HOST=localhost
-Environment=DB_PORT=5432
-Environment=DB_USER=casino_user
-Environment=DB_NAME=casino
-Environment=DB_SSL_MODE=disable
-Environment=SAVE_DEBUG_IMAGES=false
+# Load environment variables from .env file
+EnvironmentFile=/opt/casino-backend/.env
 
 # Security settings
 NoNewPrivileges=true

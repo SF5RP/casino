@@ -81,22 +81,46 @@ jobs:
           echo "📝 Commit: ${{ github.sha }}"
 
           # Copy files with temporary names
-          scp -o StrictHostKeyChecking=no -P ${SSH_PORT:-22} \
+          scp -o StrictHostKeyChecking=no -P ${{ env.SSH_PORT }} \
               backend/deploy_package/${{ env.BINARY_NAME }} \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/casino-backend/${{ env.BINARY_NAME }}.tmp
-          scp -o StrictHostKeyChecking=no -P ${SSH_PORT:-22} \
+          scp -o StrictHostKeyChecking=no -P ${{ env.SSH_PORT }} \
               backend/deploy_package/env.example \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/casino-backend/env.example.tmp
-          scp -o StrictHostKeyChecking=no -P ${SSH_PORT:-22} \
+          scp -o StrictHostKeyChecking=no -P ${{ env.SSH_PORT }} \
               backend/deploy_package/DEPLOYMENT.md \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/casino-backend/DEPLOYMENT.md.tmp
-          scp -o StrictHostKeyChecking=no -P ${SSH_PORT:-22} \
+          scp -o StrictHostKeyChecking=no -P ${{ env.SSH_PORT }} \
               backend/deploy_package/README.md \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/casino-backend/README.md.tmp
               
+          # Create .env file with proper values
+          cat > /tmp/.env << 'ENV_EOF'
+          DB_HOST=${{ secrets.DB_HOST || 'localhost' }}
+          DB_PORT=${{ secrets.DB_PORT || '5432' }}
+          DB_NAME=${{ secrets.DB_NAME || 'casino_db' }}
+          DB_USER=${{ secrets.DB_USER || 'casino_user' }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD || 'casino_password' }}
+          DB_SSL_MODE=${{ secrets.DB_SSL_MODE }}
+          PORT=8011
+          GRPC_PORT=8012
+          JWT_SECRET=${{ secrets.JWT_SECRET || 'default-jwt-secret-change-in-production' }}
+          API_KEY=${{ secrets.API_KEY || 'default-api-key-change-in-production' }}
+          FRONTEND_URL=${{ secrets.FRONTEND_URL || '' }}
+          APP_ENV=production
+          APP_DEBUG=false
+          LOG_LEVEL=info
+          ENV_EOF
+
+          # Upload .env file
+          scp -o StrictHostKeyChecking=no -P ${{ env.SSH_PORT }} \
+              /tmp/.env \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/casino-backend/.env.tmp
+
           # Execute deployment commands on server
-          ssh -o StrictHostKeyChecking=no -p ${SSH_PORT:-22} \
-              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -p ${{ env.SSH_PORT }} \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              "export BINARY_NAME=${{ env.BINARY_NAME }} && bash -s" << 'EOF'
           set -e
 
           echo "🔄 Stopping casino-backend service..."
@@ -107,24 +131,19 @@ jobs:
           sudo chown -R $USER:$USER /opt/casino-backend
 
           echo "📦 Replacing files atomically..."
-          sudo mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/${{ env.BINARY_NAME }}.tmp /opt/casino-backend/${{ env.BINARY_NAME }}
-          sudo mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/env.example.tmp /opt/casino-backend/env.example || true
-          sudo mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/DEPLOYMENT.md.tmp /opt/casino-backend/DEPLOYMENT.md || true
-          sudo mv -f /home/${{ secrets.SERVER_USER }}/casino-backend/README.md.tmp /opt/casino-backend/README.md || true
+          sudo mv -f /home/$USER/casino-backend/$BINARY_NAME.tmp /opt/casino-backend/$BINARY_NAME
+          sudo mv -f /home/$USER/casino-backend/.env.tmp /opt/casino-backend/.env
+          sudo mv -f /home/$USER/casino-backend/env.example.tmp /opt/casino-backend/env.example || true
+          sudo mv -f /home/$USER/casino-backend/DEPLOYMENT.md.tmp /opt/casino-backend/DEPLOYMENT.md || true
+          sudo mv -f /home/$USER/casino-backend/README.md.tmp /opt/casino-backend/README.md || true
 
-          echo "🗂 Ensuring uploads directory..."
-          sudo mkdir -p /opt/casino-backend/uploads
-          sudo chown -R $USER:$USER /opt/casino-backend/uploads
-          sudo chmod 775 /opt/casino-backend/uploads
-
-          echo "🗂 Creating frontend symlink for image processing..."
-          sudo mkdir -p /home/$USER/casino-frontend/public/uploads
-          sudo chown -R $USER:$USER /home/$USER/casino-frontend/public/uploads
-          sudo chmod 775 /home/$USER/casino-frontend/public/uploads
-          sudo ln -sf /home/$USER/casino-frontend /opt/frontend
 
           echo "🔐 Setting permissions..."
-          sudo chmod +x /opt/casino-backend/${{ env.BINARY_NAME }}
+          sudo chmod +x /opt/casino-backend/$BINARY_NAME
+
+          echo "🔒 Setting .env file permissions..."
+          sudo chown $USER:$USER /opt/casino-backend/.env
+          sudo chmod 600 /opt/casino-backend/.env
 
           echo "♻️ Reloading systemd units..."
           sudo systemctl daemon-reload

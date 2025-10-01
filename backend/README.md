@@ -17,7 +17,7 @@ High-performance Go backend server for casino roulette application with built-in
 
 ### Prerequisites
 
-- Go 1.22+ 
+- Go 1.22+
 - PostgreSQL (optional - falls back to in-memory storage)
 
 ### Installation
@@ -42,31 +42,42 @@ go build -o casino-backend ./cmd/server
 ```bash
 # Database Configuration
 DB_HOST=localhost          # PostgreSQL host
-DB_PORT=5432              # PostgreSQL port  
+DB_PORT=5432              # PostgreSQL port
 DB_USER=casino_user       # Database user
 DB_PASSWORD=casino_password # Database password
 DB_NAME=casino_db         # Database name
 DB_SSL_MODE=disable       # SSL mode
 
 # Server Configuration
-PORT=8080                 # HTTP server port
+PORT=8011                 # HTTP server port
+GRPC_PORT=8012           # gRPC server port
+
+# CORS Configuration
+FRONTEND_URL=             # Frontend URL for CORS (empty = allow all)
+
+# Security
+JWT_SECRET=your_jwt_secret_key_here
+API_KEY=your_api_key_here
 ```
 
 ## API Endpoints
 
 ### Roulette API
+
 - `GET /api/roulette/{key}` - Get roulette history
 - `POST /api/roulette/save` - Save new number
 - `PUT /api/roulette/{key}` - Update history
 - `GET /api/roulette/sessions` - Get all sessions
 
 ### Migrations API
+
 - `GET /api/migrations/status` - Migration status
 - `GET /api/migrations/list` - List all migrations
 - `POST /api/migrations/up` - Apply pending migrations
 - `POST /api/migrations/down/{steps}` - Rollback migrations
 
 ### System
+
 - `GET /health` - Health check with detailed status
 - `WS /ws` - WebSocket endpoint for real-time updates
 
@@ -163,10 +174,12 @@ sudo journalctl -u casino-backend -f
 docker build -t casino-backend .
 
 # Run container
-docker run -p 8080:8080 \
+docker run -p 8011:8011 -p 8012:8012 \
   -e DB_HOST=postgres \
   -e DB_USER=casino_user \
   -e DB_PASSWORD=casino_password \
+  -e JWT_SECRET=your_jwt_secret \
+  -e API_KEY=your_api_key \
   casino-backend
 ```
 
@@ -183,10 +196,11 @@ docker run -p 8080:8080 \
 ### Health Check
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:8011/health
 ```
 
 Response includes:
+
 - Server status
 - Database connectivity
 - Migration status
@@ -198,7 +212,8 @@ Response includes:
 All operations are logged with structured logging:
 
 ```
-2025/06/25 08:44:20 Server starting on port 8080
+2025/06/25 08:44:20 HTTP server starting on port 8011
+2025/06/25 08:44:20 gRPC server starting on port 8012
 2025/06/25 08:44:20 Repository initialized: PostgreSQL Database
 2025/06/25 08:44:20 Found 1 pending migrations
 2025/06/25 08:44:20 Migration 3 applied successfully in 45ms
@@ -224,10 +239,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Roadmap
 
-- [ ] Authentication system
+- [x] Authentication system (JWT)
+- [x] gRPC endpoints
 - [ ] Rate limiting
 - [ ] Metrics collection (Prometheus)
 - [ ] Distributed caching (Redis)
 - [ ] Load balancing support
 - [ ] GraphQL API
-- [ ] gRPC endpoints 

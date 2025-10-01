@@ -116,7 +116,6 @@ func main() {
 	// Create handlers
 	rouletteHandler := handlers.NewRouletteHandler(repo, jwtSecret)
     adminHandler := handlers.NewAdminHandler(repo, wsHub)
-	blueSquareHandler := handlers.NewBlueSquareHandler("uploads")
 	healthHandler := handlers.NewHealthHandler(repo, db)
 
     // Setup routes
@@ -135,9 +134,6 @@ func main() {
 	
 	// Health check routes
 	healthHandler.RegisterHealthRoutes(router)
-	
-	// Blue Square Detection API routes
-	api.HandleFunc("/detect-blue-square", blueSquareHandler.DetectBlueSquare).Methods("POST")
 
 	// WebSocket route
 	router.HandleFunc("/ws", wsHub.HandleWebSocket)

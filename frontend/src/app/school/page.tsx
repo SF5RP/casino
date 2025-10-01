@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function SchoolPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -8,26 +6,9 @@ export default function SchoolPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Школьные предметы
           </h1>
-          <p className="text-gray-600 mb-8">
-            Выберите предмет для работы с изображениями
-          </p>
+          <p className="text-gray-600 mb-8">Выберите предмет для изучения</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Link
-              href="/school/math"
-              className="block bg-blue-50 hover:bg-blue-100 rounded-lg p-6 transition-colors"
-            >
-              <div className="text-center">
-                <div className="text-4xl mb-4">🔢</div>
-                <h2 className="text-xl font-semibold text-blue-900 mb-2">
-                  Математика
-                </h2>
-                <p className="text-blue-700">
-                  Загрузка и анализ математических задач
-                </p>
-              </div>
-            </Link>
-
             <div className="block bg-gray-50 rounded-lg p-6 opacity-50">
               <div className="text-center">
                 <div className="text-4xl mb-4">📚</div>
