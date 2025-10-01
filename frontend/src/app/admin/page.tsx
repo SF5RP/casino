@@ -26,7 +26,8 @@ import {
 } from "@mui/material";
 import { Logout } from "@mui/icons-material";
 import { AdminAuthForm } from "@/components/casino/components";
-import { useAdminAuth } from "@/components/casino/hooks";
+import { useAdminAuth, useDatabaseStatus } from "@/components/casino/hooks";
+import { DatabaseStatusAlert } from "@/components/casino/components/admin/DatabaseStatusAlert";
 
 interface Connection {
   id: string;
@@ -66,6 +67,13 @@ export default function AdminPage() {
     logout,
   } = useAdminAuth();
 
+  const {
+    isConnected: dbConnected,
+    isChecking: dbChecking,
+    error: dbError,
+    checkDatabaseStatus,
+  } = useDatabaseStatus();
+
   const [sessions, setSessions] = useState<Session[]>([]);
   const [stats, setStats] = useState<AdminStats>({
     totalSessions: 0,
@@ -87,9 +95,11 @@ export default function AdminPage() {
       setLoading(true);
 
       // Получаем данные с реального API
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "/api"}/admin/sessions`
-      );
+      const isDevelopment = process.env.NODE_ENV === "development";
+      const apiUrl = isDevelopment
+        ? "/api"
+        : process.env.NEXT_PUBLIC_API_URL || "/api";
+      const response = await fetch(`${apiUrl}/admin/sessions`);
       if (!response.ok) {
         throw new Error("Failed to fetch sessions");
       }
@@ -98,9 +108,7 @@ export default function AdminPage() {
       setSessions(sessions);
 
       // Получаем статистику
-      const statsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "/api"}/admin/stats`
-      );
+      const statsResponse = await fetch(`${apiUrl}/admin/stats`);
       if (statsResponse.ok) {
         const stats = await statsResponse.json();
         setStats(stats);
@@ -147,10 +155,12 @@ export default function AdminPage() {
     setSelectedSession(session);
 
     try {
+      const isDevelopment = process.env.NODE_ENV === "development";
+      const apiUrl = isDevelopment
+        ? "/api"
+        : process.env.NEXT_PUBLIC_API_URL || "/api";
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "/api"}/admin/sessions/${
-          session.key
-        }/history`
+        `${apiUrl}/admin/sessions/${session.key}/history`
       );
       if (response.ok) {
         const history = await response.json();
@@ -273,6 +283,15 @@ export default function AdminPage() {
       </AppBar>
 
       <Box sx={{ p: 3 }}>
+        {/* Database Status Alert */}
+        <DatabaseStatusAlert
+          isConnected={dbConnected}
+          isChecking={dbChecking}
+          error={dbError}
+          onRetry={checkDatabaseStatus}
+          className="mb-4"
+        />
+
         <Grid container spacing={3} mb={4}>
           <Grid item xs={12} sm={6} md={3}>
             <Card sx={{ backgroundColor: "#1a1a1a", color: "white" }}>

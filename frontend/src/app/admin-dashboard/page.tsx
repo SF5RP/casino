@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -20,15 +20,17 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Typography
-} from '@mui/material';
+  Typography,
+} from "@mui/material";
+import { useDatabaseStatus } from "@/components/casino/hooks";
+import { DatabaseStatusAlert } from "@/components/casino/components/admin/DatabaseStatusAlert";
 
 interface Connection {
   id: string;
   key: string;
   connectedAt: string;
   lastActivity: string;
-  status: 'connected' | 'disconnected' | 'reconnecting';
+  status: "connected" | "disconnected" | "reconnecting";
   ipAddress?: string;
   userAgent?: string;
 }
@@ -53,13 +55,20 @@ interface AdminStats {
 }
 
 function AdminDashboardPage() {
+  const {
+    isConnected: dbConnected,
+    isChecking: dbChecking,
+    error: dbError,
+    checkDatabaseStatus,
+  } = useDatabaseStatus();
+
   const [sessions, setSessions] = useState<Session[]>([]);
   const [stats, setStats] = useState<AdminStats>({
     totalSessions: 0,
     activeSessions: 0,
     totalConnections: 0,
     activeConnections: 0,
-    averageHistoryLength: 0
+    averageHistoryLength: 0,
   });
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -71,37 +80,51 @@ function AdminDashboardPage() {
       setLoading(true);
 
       // Получаем данные с реального API
-              const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/admin/sessions`);
+      const isDevelopment = process.env.NODE_ENV === "development";
+      const apiUrl = isDevelopment
+        ? "/api"
+        : process.env.NEXT_PUBLIC_API_URL || "/api";
+      const response = await fetch(`${apiUrl}/admin/sessions`);
       if (!response.ok) {
-        throw new Error('Failed to fetch sessions');
+        throw new Error("Failed to fetch sessions");
       }
 
       const sessions = await response.json();
       setSessions(sessions);
 
       // Получаем статистику
-              const statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/admin/stats`);
+      const statsResponse = await fetch(`${apiUrl}/admin/stats`);
       if (statsResponse.ok) {
         const stats = await statsResponse.json();
         setStats(stats);
       } else {
         // Fallback: вычисляем статистику локально
-        const activeSessions = sessions.filter((s: Session) => s.activeConnections > 0).length;
-        const totalConnections = sessions.reduce((sum: number, s: Session) => sum + s.totalConnections, 0);
-        const activeConnections = sessions.reduce((sum: number, s: Session) => sum + s.activeConnections, 0);
-        const totalHistory = sessions.reduce((sum: number, s: Session) => sum + s.historyLength, 0);
+        const activeSessions = sessions.filter(
+          (s: Session) => s.activeConnections > 0
+        ).length;
+        const totalConnections = sessions.reduce(
+          (sum: number, s: Session) => sum + s.totalConnections,
+          0
+        );
+        const activeConnections = sessions.reduce(
+          (sum: number, s: Session) => sum + s.activeConnections,
+          0
+        );
+        const totalHistory = sessions.reduce(
+          (sum: number, s: Session) => sum + s.historyLength,
+          0
+        );
 
         setStats({
           totalSessions: sessions.length,
           activeSessions: activeSessions,
           totalConnections: totalConnections,
           activeConnections: activeConnections,
-          averageHistoryLength: totalHistory / sessions.length || 0
+          averageHistoryLength: totalHistory / sessions.length || 0,
         });
       }
-
     } catch (error) {
-      console.error('Ошибка загрузки данных:', error);
+      console.error("Ошибка загрузки данных:", error);
     } finally {
       setLoading(false);
     }
@@ -117,7 +140,13 @@ function AdminDashboardPage() {
     setSelectedSession(session);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/admin/sessions/${session.key}/history`);
+      const isDevelopment = process.env.NODE_ENV === "development";
+      const apiUrl = isDevelopment
+        ? "/api"
+        : process.env.NEXT_PUBLIC_API_URL || "/api";
+      const response = await fetch(
+        `${apiUrl}/admin/sessions/${session.key}/history`
+      );
       if (response.ok) {
         const history = await response.json();
         setSessionHistory(history);
@@ -129,7 +158,7 @@ function AdminDashboardPage() {
         setSessionHistory(mockHistory);
       }
     } catch (error) {
-      console.error('Failed to fetch history:', error);
+      console.error("Failed to fetch history:", error);
       // Fallback: генерируем моковую историю
       const mockHistory = Array.from({ length: session.historyLength }, () =>
         Math.floor(Math.random() * 37)
@@ -140,14 +169,15 @@ function AdminDashboardPage() {
     setViewHistoryDialog(true);
   };
 
-
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ru-RU');
+    return new Date(dateString).toLocaleString("ru-RU");
   };
 
   const formatDuration = (dateString: string) => {
-    const minutes = Math.floor((Date.now() - new Date(dateString).getTime()) / 60000);
-    if (minutes < 1) return 'только что';
+    const minutes = Math.floor(
+      (Date.now() - new Date(dateString).getTime()) / 60000
+    );
+    if (minutes < 1) return "только что";
     if (minutes < 60) return `${minutes} мин назад`;
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours} ч назад`;
@@ -156,14 +186,23 @@ function AdminDashboardPage() {
   };
 
   return (
-    <Box sx={{ p: 3, minHeight: '100vh', backgroundColor: '#0a0a0a' }}>
+    <Box sx={{ p: 3, minHeight: "100vh", backgroundColor: "#0a0a0a" }}>
       <Typography variant="h4" color="white" mb={3}>
         Админ-панель Casino Roulette (Упрощенная версия)
       </Typography>
 
+      {/* Database Status Alert */}
+      <DatabaseStatusAlert
+        isConnected={dbConnected}
+        isChecking={dbChecking}
+        error={dbError}
+        onRetry={checkDatabaseStatus}
+        className="mb-4"
+      />
+
       <Grid container spacing={3} mb={4}>
         <Grid item xs={12} sm={6}>
-          <Card sx={{ backgroundColor: '#1a1a1a', color: 'white' }}>
+          <Card sx={{ backgroundColor: "#1a1a1a", color: "white" }}>
             <CardContent>
               <Typography variant="h6" color="primary">
                 {stats.activeSessions}
@@ -175,7 +214,7 @@ function AdminDashboardPage() {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6}>
-          <Card sx={{ backgroundColor: '#1a1a1a', color: 'white' }}>
+          <Card sx={{ backgroundColor: "#1a1a1a", color: "white" }}>
             <CardContent>
               <Typography variant="h6" color="success.main">
                 {stats.activeConnections}
@@ -188,44 +227,60 @@ function AdminDashboardPage() {
         </Grid>
       </Grid>
 
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={3}
+      >
         <Typography variant="h5" color="white">
           Сессии и подключения
         </Typography>
-        <Button
-          variant="contained"
-          onClick={fetchSessions}
-          disabled={loading}
-        >
+        <Button variant="contained" onClick={fetchSessions} disabled={loading}>
           🔄 Обновить
         </Button>
       </Box>
 
-      <TableContainer component={Paper} sx={{ backgroundColor: '#1a1a1a' }}>
+      <TableContainer component={Paper} sx={{ backgroundColor: "#1a1a1a" }}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Сессия</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Создана</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Последняя активность</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>История</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Подключения</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Действия</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                Сессия
+              </TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                Создана
+              </TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                Последняя активность
+              </TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                История
+              </TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                Подключения
+              </TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                Действия
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sessions.map((session) => (
               <React.Fragment key={session.key}>
                 {/* Строка сессии */}
-                <TableRow sx={{ backgroundColor: '#2a2a2a' }}>
-                  <TableCell sx={{ color: 'white' }}>
+                <TableRow sx={{ backgroundColor: "#2a2a2a" }}>
+                  <TableCell sx={{ color: "white" }}>
                     <Box display="flex" alignItems="center" gap={1}>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontFamily: "monospace" }}
+                      >
                         {session.key}
                       </Typography>
                     </Box>
                   </TableCell>
-                  <TableCell sx={{ color: 'white' }}>
+                  <TableCell sx={{ color: "white" }}>
                     <Typography variant="body2">
                       {formatDate(session.createdAt)}
                     </Typography>
@@ -233,7 +288,7 @@ function AdminDashboardPage() {
                       {formatDuration(session.createdAt)}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ color: 'white' }}>
+                  <TableCell sx={{ color: "white" }}>
                     <Typography variant="body2">
                       {formatDate(session.lastActivity)}
                     </Typography>
@@ -241,16 +296,18 @@ function AdminDashboardPage() {
                       {formatDuration(session.lastActivity)}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ color: 'white' }}>
+                  <TableCell sx={{ color: "white" }}>
                     <Typography variant="body2">
                       {session.historyLength} чисел
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ color: 'white' }}>
+                  <TableCell sx={{ color: "white" }}>
                     <Box display="flex" gap={1}>
                       <Chip
                         label={`${session.activeConnections} активных`}
-                        color={session.activeConnections > 0 ? 'success' : 'default'}
+                        color={
+                          session.activeConnections > 0 ? "success" : "default"
+                        }
                         size="small"
                       />
                       <Chip
@@ -265,7 +322,10 @@ function AdminDashboardPage() {
                       size="small"
                       variant="outlined"
                       onClick={() => handleViewHistory(session)}
-                      sx={{ color: 'primary.main', borderColor: 'primary.main' }}
+                      sx={{
+                        color: "primary.main",
+                        borderColor: "primary.main",
+                      }}
                     >
                       👁️ История
                     </Button>
@@ -289,9 +349,7 @@ function AdminDashboardPage() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>
-          История сессии: {selectedSession?.key}
-        </DialogTitle>
+        <DialogTitle>История сессии: {selectedSession?.key}</DialogTitle>
         <DialogContent>
           <Box display="flex" flexWrap="wrap" gap={1} p={2}>
             {sessionHistory.map((number, index) => (
@@ -299,10 +357,17 @@ function AdminDashboardPage() {
                 key={index}
                 label={number}
                 sx={{
-                  backgroundColor: number === 0 ? '#4caf50' :
-                    [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36].includes(number) ? '#f44336' : '#333',
-                  color: 'white',
-                  fontWeight: 'bold'
+                  backgroundColor:
+                    number === 0
+                      ? "#4caf50"
+                      : [
+                          1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30,
+                          32, 34, 36,
+                        ].includes(number)
+                      ? "#f44336"
+                      : "#333",
+                  color: "white",
+                  fontWeight: "bold",
                 }}
               />
             ))}
@@ -314,13 +379,11 @@ function AdminDashboardPage() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setViewHistoryDialog(false)}>
-            Закрыть
-          </Button>
+          <Button onClick={() => setViewHistoryDialog(false)}>Закрыть</Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
 }
 
-export default AdminDashboardPage; 
+export default AdminDashboardPage;

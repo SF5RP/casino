@@ -117,6 +117,7 @@ func main() {
 	rouletteHandler := handlers.NewRouletteHandler(repo, jwtSecret)
     adminHandler := handlers.NewAdminHandler(repo, wsHub)
 	blueSquareHandler := handlers.NewBlueSquareHandler("uploads")
+	healthHandler := handlers.NewHealthHandler(repo, db)
 
     // Setup routes
 	router := mux.NewRouter()
@@ -131,6 +132,9 @@ func main() {
     jwtMW := handlers.NewJWTMiddleware([]byte(jwtSecret))
     adminRoleMW := handlers.RequireRoleMiddleware("admin")
     adminHandler.RegisterAdminRoutes(router, jwtMW, adminRoleMW)
+	
+	// Health check routes
+	healthHandler.RegisterHealthRoutes(router)
 	
 	// Blue Square Detection API routes
 	api.HandleFunc("/detect-blue-square", blueSquareHandler.DetectBlueSquare).Methods("POST")
