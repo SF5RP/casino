@@ -276,11 +276,18 @@ func (h *AdminHandler) getSessionsFromHub() []Session {
 }
 
 // RegisterAdminRoutes регистрирует маршруты для админ-панели
-func (h *AdminHandler) RegisterAdminRoutes(router *mux.Router) {
-	adminRouter := router.PathPrefix("/api/admin").Subrouter()
-	
-	adminRouter.HandleFunc("/sessions", h.GetSessions).Methods("GET", "OPTIONS")
-	adminRouter.HandleFunc("/stats", h.GetStats).Methods("GET", "OPTIONS")
-	adminRouter.HandleFunc("/sessions/{key}/history", h.GetSessionHistory).Methods("GET", "OPTIONS")
-	adminRouter.HandleFunc("/connections/{id}/disconnect", h.DisconnectUser).Methods("POST", "OPTIONS")
-} 
+func (h *AdminHandler) RegisterAdminRoutes(router *mux.Router, jwtMiddleware mux.MiddlewareFunc, roleMiddleware mux.MiddlewareFunc) {
+    adminRouter := router.PathPrefix("/api/admin").Subrouter()
+
+    if jwtMiddleware != nil {
+        adminRouter.Use(jwtMiddleware)
+    }
+    if roleMiddleware != nil {
+        adminRouter.Use(roleMiddleware)
+    }
+
+    adminRouter.HandleFunc("/sessions", h.GetSessions).Methods("GET", "OPTIONS")
+    adminRouter.HandleFunc("/stats", h.GetStats).Methods("GET", "OPTIONS")
+    adminRouter.HandleFunc("/sessions/{key}/history", h.GetSessionHistory).Methods("GET", "OPTIONS")
+    adminRouter.HandleFunc("/connections/{id}/disconnect", h.DisconnectUser).Methods("POST", "OPTIONS")
+}
