@@ -1,10 +1,12 @@
 # Casino Roulette Backend Makefile
 
-.PHONY: build run test clean deps help deploy
+.PHONY: build run test clean deps help deploy grpc-client grpc-gen
 
 # Variables
 BINARY_NAME=casino-server
 MAIN_PATH=./cmd/server/main.go
+CLIENT_NAME=casino-client
+CLIENT_PATH=./cmd/client/main.go
 
 # Default target
 help:
@@ -15,6 +17,9 @@ help:
 	@echo "  make clean         - Clean build artifacts"
 	@echo "  make deps          - Download dependencies"
 	@echo "  make deploy-prep   - Prepare deployment files"
+	@echo "  make grpc-gen      - Generate gRPC code from proto files"
+	@echo "  make grpc-client   - Build gRPC client"
+	@echo "  make grpc-test     - Test gRPC client"
 
 # Build the application
 build:
@@ -77,4 +82,38 @@ lint:
 # Install development tools
 tools:
 	@echo "Installing development tools..."
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest 
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Generate gRPC code from proto files
+grpc-gen:
+	@echo "Generating gRPC code..."
+	export PATH=$$PATH:$$(go env GOPATH)/bin && \
+	protoc --go_out=. --go_opt=paths=source_relative \
+		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		proto/roulette.proto
+
+# Build gRPC client
+grpc-client:
+	@echo "Building gRPC client..."
+	go build -o $(CLIENT_NAME) $(CLIENT_PATH)
+
+# Test gRPC client (requires server to be running)
+grpc-test:
+	@echo "Testing gRPC client..."
+	@if [ ! -f $(CLIENT_NAME) ]; then make grpc-client; fi
+	./$(CLIENT_NAME)
+
+# Run both server and client for testing
+grpc-demo:
+	@echo "Starting gRPC demo..."
+	@echo "Server will start on port 8011 (HTTP) and 8012 (gRPC)"
+	@echo "Client will connect and demonstrate all features"
+	@echo ""
+	@echo "Starting server in background..."
+	@make run &
+	@SERVER_PID=$$!; \
+	sleep 3; \
+	echo "Starting client..."; \
+	make grpc-test; \
+	echo "Stopping server..."; \
+	kill $$SERVER_PID
