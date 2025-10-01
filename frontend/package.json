@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "dev:full": "node start.js",
     "dev:app": "next dev",
     "start:prod": "node start-prod.js",

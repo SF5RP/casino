@@ -51,7 +51,7 @@ export function useDatabaseStatus() {
         let errorText = "";
         try {
           errorText = await response.text();
-        } catch (e) {
+        } catch {
           errorText = "Не удалось получить текст ошибки";
         }
 
