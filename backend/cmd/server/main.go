@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,11 +14,13 @@ import (
 	"time"
 
 	"casino-backend/internal/database"
+	grpcHandler "casino-backend/internal/grpc"
 	"casino-backend/internal/handlers"
 	"casino-backend/pkg/websocket"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -185,31 +188,60 @@ func main() {
     // CORS middleware
     router.Use(corsMiddleware)
 
-	// Get port from environment or use default
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8011"
+	// Get ports from environment or use defaults
+	httpPort := os.Getenv("PORT")
+	if httpPort == "" {
+		httpPort = "8011"
 	}
 
-	// Start server
-	log.Printf("Server starting on port %s", port)
-	log.Printf("WebSocket endpoint: ws://localhost:%s/ws", port)
-	log.Printf("API endpoint: http://localhost:%s/api", port)
-	log.Printf("Health check: http://localhost:%s/health", port)
+	grpcPort := os.Getenv("GRPC_PORT")
+	if grpcPort == "" {
+		grpcPort = "8012"
+	}
+
+	// Start HTTP server
+	log.Printf("HTTP server starting on port %s", httpPort)
+	log.Printf("WebSocket endpoint: ws://localhost:%s/ws", httpPort)
+	log.Printf("API endpoint: http://localhost:%s/api", httpPort)
+	log.Printf("Health check: http://localhost:%s/health", httpPort)
+
+	// Start gRPC server
+	log.Printf("gRPC server starting on port %s", grpcPort)
+	lis, err := net.Listen("tcp", ":"+grpcPort)
+	if err != nil {
+		log.Fatalf("Failed to listen on gRPC port %s: %v", grpcPort, err)
+	}
+
+	grpcSrv := grpc.NewServer()
+	grpcHandler.RegisterGRPCServer(grpcSrv, repo, jwtSecret)
 
 	// Setup graceful shutdown
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
+	// Start HTTP server in goroutine
 	go func() {
-		if err := http.ListenAndServe(":"+port, router); err != nil {
-			log.Fatalf("Server failed to start: %v", err)
+		if err := http.ListenAndServe(":"+httpPort, router); err != nil {
+			log.Fatalf("HTTP server failed to start: %v", err)
 		}
 	}()
 
+	// Start gRPC server in goroutine
+	go func() {
+		if err := grpcSrv.Serve(lis); err != nil {
+			log.Fatalf("gRPC server failed to start: %v", err)
+		}
+	}()
+
+	log.Printf("gRPC endpoint: localhost:%s", grpcPort)
+
 	// Wait for interrupt signal
 	<-c
-	log.Println("Shutting down server...")
+	log.Println("Shutting down servers...")
+	
+	// Graceful shutdown
+	grpcSrv.GracefulStop()
+	log.Println("gRPC server stopped")
 }
 
 // handleCLICommands processes command line arguments
