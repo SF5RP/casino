@@ -1,0 +1,26 @@
+name: Deploy Full Stack
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - "*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-full
+  cancel-in-progress: true
+
+jobs:
+  deploy-backend:
+    uses: ./.github/workflows/deploy-backend.yml
+    secrets: inherit
+
+  deploy-frontend:
+    uses: ./.github/workflows/deploy-frontend.yml
+    secrets: inherit
+    needs: deploy-backend
