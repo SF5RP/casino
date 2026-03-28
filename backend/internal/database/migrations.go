@@ -87,6 +87,20 @@ func (m *MigrationManager) GetMigrations() []Migration {
 				EXECUTE FUNCTION update_updated_at_column()`,
 			Down: `DROP TRIGGER IF EXISTS update_roulette_sessions_updated_at ON roulette_sessions`,
 		},
+		{
+			Version:     6,
+			Description: "Add user tracking to roulette numbers",
+			Up: `ALTER TABLE roulette_numbers
+				ADD COLUMN IF NOT EXISTS created_by_user_id VARCHAR(255),
+				ADD COLUMN IF NOT EXISTS created_by_username VARCHAR(255);
+			CREATE INDEX IF NOT EXISTS idx_roulette_numbers_user_id ON roulette_numbers(created_by_user_id);
+			COMMENT ON COLUMN roulette_numbers.created_by_user_id IS 'User ID from Auth service JWT token (sub claim)';
+			COMMENT ON COLUMN roulette_numbers.created_by_username IS 'Username from Auth service JWT token';`,
+			Down: `DROP INDEX IF EXISTS idx_roulette_numbers_user_id;
+			ALTER TABLE roulette_numbers
+				DROP COLUMN IF EXISTS created_by_username,
+				DROP COLUMN IF EXISTS created_by_user_id`,
+		},
 	}
 }
 

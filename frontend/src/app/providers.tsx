@@ -1,41 +1,46 @@
-'use client';
+"use client";
 
-import { SnackbarProvider } from 'notistack';
-import { ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
+import { SnackbarProvider } from "notistack";
+import { ReactNode } from "react";
+import { Provider as ReduxProvider } from "react-redux";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { CssBaseline } from "@mui/material";
+import { store } from "@/store";
 
 const queryClient = new QueryClient();
 
 // Создаем тему с шрифтом Huninn
 const theme = createTheme({
   typography: {
-    fontFamily: '"Huninn", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    fontFamily:
+      '"Huninn", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   palette: {
-    mode: 'dark',
+    mode: "dark",
     primary: {
-      main: '#2ecc71',
+      main: "#2ecc71",
     },
     background: {
-      default: '#1d1d1d',
-      paper: '#1a1a1a',
+      default: "#1d1d1d",
+      paper: "#1a1a1a",
     },
     text: {
-      primary: '#ffffff',
-      secondary: '#cccccc',
+      primary: "#ffffff",
+      secondary: "#cccccc",
     },
   },
 });
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <SnackbarProvider maxSnack={3}>{children}</SnackbarProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ReduxProvider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <SnackbarProvider maxSnack={3}>{children}</SnackbarProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ReduxProvider>
   );
 }

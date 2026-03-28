@@ -17,11 +17,13 @@ type RouletteSession struct {
 
 // RouletteNumberRecord represents a number record in database
 type RouletteNumberRecord struct {
-	ID        int              `json:"id" db:"id"`
-	SessionID int              `json:"session_id" db:"session_id"`
-	Number    RouletteNumber   `json:"number" db:"number"`
-	Position  int              `json:"position" db:"position"`
-	CreatedAt time.Time        `json:"created_at" db:"created_at"`
+	ID                int              `json:"id" db:"id"`
+	SessionID         int              `json:"session_id" db:"session_id"`
+	Number            RouletteNumber   `json:"number" db:"number"`
+	Position          int              `json:"position" db:"position"`
+	CreatedAt         time.Time        `json:"created_at" db:"created_at"`
+	CreatedByUserID   *string          `json:"created_by_user_id,omitempty" db:"created_by_user_id"`
+	CreatedByUsername *string          `json:"created_by_username,omitempty" db:"created_by_username"`
 }
 
 // CreateSessionRequest represents request to create session

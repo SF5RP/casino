@@ -159,7 +159,18 @@ func (h *RouletteHandler) SaveNumber(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := h.repo.AddNumberToSession(req.Key, req.Number)
+	// Try to extract user info from JWT (if present)
+	// This is optional - if no JWT, userID and username will be empty
+	userID := GetUserID(r)
+	username := GetUsername(r)
+	
+	// Log user info if present (for debugging)
+	if userID != "" {
+		log.Printf("Number saved by user: %s (ID: %s)", username, userID)
+	}
+
+	// Save with user tracking
+	session, err := h.repo.AddNumberToSessionWithUser(req.Key, req.Number, userID, username)
 	if err != nil {
 		log.Printf("Error saving number: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -174,7 +185,7 @@ func (h *RouletteHandler) SaveNumber(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 	json.NewEncoder(w).Encode(response)
 }

@@ -15,6 +15,7 @@ type RouletteRepositoryInterface interface {
 
 	// Number operations
 	AddNumberToSession(key string, number models.RouletteNumber) (*models.RouletteSession, error)
+	AddNumberToSessionWithUser(key string, number models.RouletteNumber, userID, username string) (*models.RouletteSession, error)
 	RemoveNumberFromSession(key string, index int) (*models.RouletteSession, error)
 	UpdateSessionHistory(key string, history []models.RouletteNumber) (*models.RouletteSession, error)
 

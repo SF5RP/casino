@@ -1,20 +1,21 @@
 package handlers
 
 import (
-    "context"
-    "net/http"
-    "os"
-    "strings"
+	"context"
+	"net/http"
+	"os"
+	"strings"
 
-    "github.com/golang-jwt/jwt/v5"
-    "github.com/gorilla/mux"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/mux"
 )
 
 type contextKey string
 
 const (
-    contextKeyUserID contextKey = "auth_user_id"
-    contextKeyRole   contextKey = "auth_user_role"
+    contextKeyUserID   contextKey = "auth_user_id"
+    contextKeyUsername contextKey = "auth_username"
+    contextKeyRole     contextKey = "auth_user_role"
 )
 
 // NewJWTMiddleware validates Authorization: Bearer <token> using HS256 and puts claims into context
@@ -58,9 +59,11 @@ func NewJWTMiddleware(secret []byte) mux.MiddlewareFunc {
             }
 
             userID, _ := claims["sub"].(string)
+            username, _ := claims["username"].(string)
             role, _ := claims["role"].(string)
 
             ctx := context.WithValue(r.Context(), contextKeyUserID, userID)
+            ctx = context.WithValue(ctx, contextKeyUsername, username)
             ctx = context.WithValue(ctx, contextKeyRole, role)
             next.ServeHTTP(w, r.WithContext(ctx))
         })
@@ -95,6 +98,11 @@ func RequireRoleMiddleware(allowedRoles ...string) mux.MiddlewareFunc {
 // Helpers to access context values in handlers if needed
 func GetUserID(r *http.Request) string {
     v, _ := r.Context().Value(contextKeyUserID).(string)
+    return v
+}
+
+func GetUsername(r *http.Request) string {
+    v, _ := r.Context().Value(contextKeyUsername).(string)
     return v
 }
 

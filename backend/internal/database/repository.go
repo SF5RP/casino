@@ -172,8 +172,13 @@ func (r *RouletteRepository) GetSessionHistorySince(key string, version int) ([]
 	return history, nil
 }
 
-// AddNumberToSession adds a number to session history
+// AddNumberToSession adds a number to session history (without user tracking)
 func (r *RouletteRepository) AddNumberToSession(key string, number models.RouletteNumber) (*models.RouletteSession, error) {
+	return r.AddNumberToSessionWithUser(key, number, "", "")
+}
+
+// AddNumberToSessionWithUser adds a number to session history with user tracking
+func (r *RouletteRepository) AddNumberToSessionWithUser(key string, number models.RouletteNumber, userID, username string) (*models.RouletteSession, error) {
 	// Start transaction
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -206,12 +211,23 @@ func (r *RouletteRepository) AddNumberToSession(key string, number models.Roulet
 		return nil, fmt.Errorf("failed to convert number: %w", err)
 	}
 
-	// Insert number
+	// Insert number with user info
 	insertQuery := `
-		INSERT INTO roulette_numbers (session_id, number, position)
-		VALUES ($1, $2, $3)
+		INSERT INTO roulette_numbers (session_id, number, position, created_by_user_id, created_by_username)
+		VALUES ($1, $2, $3, $4, $5)
 	`
-	_, err = tx.Exec(insertQuery, session.ID, numberStr, position)
+	
+	// Use nil for empty strings
+	var userIDPtr *string
+	var usernamePtr *string
+	if userID != "" {
+		userIDPtr = &userID
+	}
+	if username != "" {
+		usernamePtr = &username
+	}
+	
+	_, err = tx.Exec(insertQuery, session.ID, numberStr, position, userIDPtr, usernamePtr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert number: %w", err)
 	}

@@ -101,8 +101,14 @@ func (r *MemoryRepository) ValidateSessionPassword(key, password string) (bool, 
 	return session.Password == password, nil
 }
 
-// AddNumberToSession adds a number to a session
+// AddNumberToSession adds a number to a session (without user tracking)
 func (r *MemoryRepository) AddNumberToSession(key string, number models.RouletteNumber) (*models.RouletteSession, error) {
+	return r.AddNumberToSessionWithUser(key, number, "", "")
+}
+
+// AddNumberToSessionWithUser adds a number to a session with user tracking
+// Note: MemoryRepository doesn't persist user info, but implements the interface
+func (r *MemoryRepository) AddNumberToSessionWithUser(key string, number models.RouletteNumber, userID, username string) (*models.RouletteSession, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -121,6 +127,8 @@ func (r *MemoryRepository) AddNumberToSession(key string, number models.Roulette
 	}
 
 	// Add number to history
+	// Note: In-memory repository doesn't store user info per number
+	// This is a limitation of the memory backend
 	session.History = append(session.History, number)
 	session.UpdatedAt = time.Now()
 
