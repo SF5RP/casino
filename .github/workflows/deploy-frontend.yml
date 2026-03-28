@@ -81,4 +81,4 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            ${REMOTE_BASE_DIR}/deploy_frontend.sh ${REMOTE_TMP_DIR}/frontend/${REMOTE_ARCHIVE}
+            ${{ env.REMOTE_BASE_DIR }}/deploy_frontend.sh ${{ env.REMOTE_TMP_DIR }}/frontend/${{ env.REMOTE_ARCHIVE }}
