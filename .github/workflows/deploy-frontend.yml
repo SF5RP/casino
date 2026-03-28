@@ -9,6 +9,7 @@ on:
     paths:
       - "frontend/**"
       - ".github/workflows/deploy-frontend.yml"
+  workflow_call:
 
 concurrency:
   group: deploy-frontend
