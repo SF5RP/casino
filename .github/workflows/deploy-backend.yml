@@ -48,4 +48,4 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             chmod +x /tmp/casino-deploy/backend/deploy/deploy_backend.sh
-            /tmp/casino-deploy/backend/deploy/deploy_backend.sh /tmp/casino-deploy/backend/casino-backend.tar.gz
+            sudo /tmp/casino-deploy/backend/deploy/deploy_backend.sh /tmp/casino-deploy/backend/casino-backend.tar.gz
