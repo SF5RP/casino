@@ -62,6 +62,16 @@ jobs:
         run: |
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts || true
 
+      - name: Upload frontend deploy script
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "frontend/deploy/deploy_frontend.sh"
+          target: "${{ env.REMOTE_BASE_DIR }}"
+
       - name: Check frontend deploy prerequisites
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -71,8 +81,11 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            test -x "${{ env.REMOTE_BASE_DIR }}/deploy_frontend.sh"
-            test -f "${{ env.REMOTE_BASE_DIR }}/shared/frontend/env/frontend.env"
+            chmod +x "${{ env.REMOTE_BASE_DIR }}/frontend/deploy/deploy_frontend.sh"
+            if [ ! -f "${{ env.REMOTE_BASE_DIR }}/shared/frontend/env/frontend.env" ]; then
+              echo "Missing frontend env file: ${{ env.REMOTE_BASE_DIR }}/shared/frontend/env/frontend.env" >&2
+              exit 1
+            fi
 
       - name: Copy frontend package to server
         uses: appleboy/scp-action@v0.1.7
@@ -93,4 +106,4 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            ${{ env.REMOTE_BASE_DIR }}/deploy_frontend.sh ${{ env.REMOTE_TMP_DIR }}/frontend/${{ env.REMOTE_ARCHIVE }}
+            ${{ env.REMOTE_BASE_DIR }}/frontend/deploy/deploy_frontend.sh ${{ env.REMOTE_TMP_DIR }}/frontend/${{ env.REMOTE_ARCHIVE }}

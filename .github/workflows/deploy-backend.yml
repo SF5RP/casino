@@ -46,6 +46,16 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           known_hosts: ${{ secrets.VPS_HOST }}
 
+      - name: Upload backend deploy script
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "backend/deploy/deploy_backend.sh"
+          target: "${{ env.REMOTE_BASE_DIR }}"
+
       - name: Check backend deploy prerequisites
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -55,8 +65,11 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            test -x "${{ env.REMOTE_BASE_DIR }}/deploy_backend.sh"
-            test -f "${{ env.REMOTE_BASE_DIR }}/shared/backend/env/backend.env"
+            chmod +x "${{ env.REMOTE_BASE_DIR }}/backend/deploy/deploy_backend.sh"
+            if [ ! -f "${{ env.REMOTE_BASE_DIR }}/shared/backend/env/backend.env" ]; then
+              echo "Missing backend env file: ${{ env.REMOTE_BASE_DIR }}/shared/backend/env/backend.env" >&2
+              exit 1
+            fi
 
       - name: Copy backend package to server
         uses: appleboy/scp-action@v0.1.7
@@ -77,4 +90,4 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            ${{ env.REMOTE_BASE_DIR }}/deploy_backend.sh ${{ env.REMOTE_TMP_DIR }}/backend/${{ env.REMOTE_ARCHIVE }}
+            ${{ env.REMOTE_BASE_DIR }}/backend/deploy/deploy_backend.sh ${{ env.REMOTE_TMP_DIR }}/backend/${{ env.REMOTE_ARCHIVE }}
