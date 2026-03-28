@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "dev:full": "node start.js",
     "dev:app": "next dev",
-    "test": "echo \"No tests specified\" && exit 0"
+    "test": "echo \"No tests specified\" && exit 0",
+    "deploy:prep": "yarn build && node ./scripts/prepare-deploy.js"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",

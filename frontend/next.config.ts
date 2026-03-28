@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   // Добавляем прокси для API запросов в режиме разработки
   async rewrites() {
     const isDevelopment = process.env.NODE_ENV === "development";

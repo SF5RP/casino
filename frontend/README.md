@@ -57,7 +57,7 @@ npm run lint         # Run ESLint
 npm run type-check   # Run TypeScript checks
 
 # Production deployment
-npm run deploy       # Deploy to production
+yarn deploy:prep     # Prepare standalone release bundle
 ```
 
 ## 📁 Project Structure
@@ -261,6 +261,21 @@ npm run build
 # Start production server
 npm start
 ```
+
+### Release Bundle
+
+```bash
+yarn deploy:prep
+tar -czf casino-frontend.tar.gz -C dist casino-frontend
+```
+
+`yarn deploy:prep` builds a Next.js standalone bundle into `dist/casino-frontend/`.
+
+Server deploy script:
+- `deploy/deploy_frontend.sh`
+
+Expected env file on server:
+- `/srv/casino/shared/frontend/env/frontend.env`
 
 ### Docker Deployment
 

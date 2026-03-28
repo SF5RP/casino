@@ -155,6 +155,60 @@ See component documentation:
 - [Frontend API Documentation](frontend/README.md)
 - [Backend API Documentation](backend/README.md)
 
+## 🚀 Production Deploy
+
+Frontend and backend are deployed separately.
+
+### Backend
+```bash
+cd backend
+make deploy-prep
+tar -czf casino-backend.tar.gz -C dist casino-backend
+```
+
+Server-side release script:
+- `backend/deploy/deploy_backend.sh`
+
+Expected server layout:
+```bash
+/srv/casino/
+  releases/backend/
+  current/backend -> /srv/casino/releases/backend/<timestamp>
+  shared/backend/env/backend.env
+```
+
+The backend deploy script:
+- extracts a new release
+- loads `/srv/casino/shared/backend/env/backend.env`
+- runs built-in migrations via `casino-server migrate`
+- switches `current/backend`
+- restarts `casino-backend`
+
+### Frontend
+```bash
+cd frontend
+yarn deploy:prep
+tar -czf casino-frontend.tar.gz -C dist casino-frontend
+```
+
+Server-side release script:
+- `frontend/deploy/deploy_frontend.sh`
+
+Expected server layout:
+```bash
+/srv/casino/
+  releases/frontend/
+  current/frontend -> /srv/casino/releases/frontend/<timestamp>
+  shared/frontend/env/frontend.env
+```
+
+The frontend deploy script expects a Next.js standalone bundle with:
+- `server.js`
+- `.next/static`
+- `public/`
+
+It then switches `current/frontend` and restarts `casino-frontend`.
+
 ## 📊 Performance
 
 ### Frontend (Next.js)

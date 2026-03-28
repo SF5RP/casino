@@ -1,6 +1,6 @@
 # Casino Roulette Backend Makefile
 
-.PHONY: build run test clean deps help deploy grpc-client grpc-gen
+.PHONY: build run test clean deps help deploy grpc-client grpc-gen deploy-prep
 
 # Variables
 BINARY_NAME=casino-server
@@ -65,7 +65,7 @@ deploy-prep:
 	mkdir -p dist/casino-backend
 	go build -o dist/casino-backend/$(BINARY_NAME) $(MAIN_PATH)
 	cp -r deploy dist/casino-backend/
-	cp .env.example dist/casino-backend/
+	cp env.example dist/casino-backend/
 	cp README.md dist/casino-backend/
 	@echo "Deployment package ready in dist/casino-backend/"
 
