@@ -1,0 +1,58 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: yarn install --immutable
+
+      - name: Prepare frontend release
+        working-directory: frontend
+        run: |
+          yarn deploy:prep
+          tar -czf casino-frontend.tar.gz -C dist casino-frontend
+
+      - name: Copy frontend package to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "frontend/casino-frontend.tar.gz,frontend/deploy/deploy_frontend.sh"
+          target: "/tmp/casino-deploy/frontend"
+          strip_components: 1
+
+      - name: Run frontend deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            chmod +x /tmp/casino-deploy/frontend/deploy_frontend.sh
+            /tmp/casino-deploy/frontend/deploy_frontend.sh /tmp/casino-deploy/frontend/casino-frontend.tar.gz

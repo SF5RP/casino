@@ -1,0 +1,51 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Prepare backend release
+        working-directory: backend
+        run: |
+          make deploy-prep
+          tar -czf casino-backend.tar.gz -C dist casino-backend
+
+      - name: Copy backend package to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "backend/casino-backend.tar.gz,backend/deploy/deploy_backend.sh"
+          target: "/tmp/casino-deploy/backend"
+          strip_components: 1
+
+      - name: Run backend deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            chmod +x /tmp/casino-deploy/backend/deploy_backend.sh
+            /tmp/casino-deploy/backend/deploy_backend.sh /tmp/casino-deploy/backend/casino-backend.tar.gz
