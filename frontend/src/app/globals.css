@@ -18,84 +18,6 @@ body {
   left: -9999px;
 }
 
-/* Стили для найденной пары в memory game */
-.memory-game-found-pair {
-  position: relative;
-  z-index: 10;
-}
-
-.memory-game-found-pair::before {
-  content: "";
-  position: absolute;
-  top: -8px;
-  left: -8px;
-  right: -8px;
-  bottom: -8px;
-  background: radial-gradient(circle, rgba(0, 255, 0, 0.3) 0%, transparent 70%);
-  border-radius: 8px;
-  pointer-events: none;
-  z-index: -1;
-}
-
-.memory-game-found-pair::after {
-  content: "";
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  right: -4px;
-  bottom: -4px;
-  background: linear-gradient(
-    45deg,
-    rgba(0, 255, 0, 0.2),
-    rgba(0, 255, 0, 0.1)
-  );
-  border-radius: 4px;
-  pointer-events: none;
-  z-index: -1;
-}
-
-/* Дополнительное внутреннее свечение для найденной пары */
-.memory-game-found-pair .found-pair-glow {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(
-    circle at center,
-    rgba(0, 255, 0, 0.15) 0%,
-    transparent 60%
-  );
-  border-radius: 4px;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Стили для удаления картинки (красная) */
-.memory-game-deletion::before {
-  background: radial-gradient(
-    circle,
-    rgba(244, 67, 54, 0.4) 0%,
-    transparent 70%
-  );
-}
-
-.memory-game-deletion::after {
-  background: linear-gradient(
-    45deg,
-    rgba(244, 67, 54, 0.3),
-    rgba(244, 67, 54, 0.2)
-  );
-}
-
-.memory-game-deletion .found-pair-glow {
-  background: radial-gradient(
-    circle at center,
-    rgba(244, 67, 54, 0.2) 0%,
-    transparent 60%
-  );
-}
-
 /* React Grid Layout styles */
 .react-grid-layout {
   position: relative;
@@ -116,10 +38,8 @@ body {
   height: 20px;
   bottom: 0;
   right: 0;
-  background: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0Q0FGNTAiIGZpbGwtcnVsZT0iZXZlbm9kZCI+PHBhdGggZD0ibTUgNWgtNHYtNGg0eiIvPjwvZz48L3N2Zz4=");
-  background-position: bottom right;
   padding: 0 3px 3px 0;
-  background-repeat: no-repeat;
+  background: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM0Q0FGNTAiIGZpbGwtcnVsZT0iZXZlbm9kZCI+PHBhdGggZD0ibTUgNWgtNHYtNGg0eiIvPjwvZz48L3N2Zz4=") no-repeat bottom right;
   background-origin: content-box;
   box-sizing: border-box;
   cursor: se-resize;

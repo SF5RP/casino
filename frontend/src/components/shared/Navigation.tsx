@@ -1,7 +1,7 @@
 "use client";
 
 import { AppBar, Toolbar, Typography, Button, Box } from "@mui/material";
-import { Casino, Home, Extension } from "@mui/icons-material";
+import { Casino, Home } from "@mui/icons-material";
 import Link from "next/link";
 import { useEffect } from "react";
 import { useAuth } from "@/features/auth";
@@ -31,15 +31,6 @@ export const Navigation = () => {
           >
             Главная
           </Button>
-          <Button
-            color="inherit"
-            component={Link}
-            href="/memory-game"
-            startIcon={<Extension />}
-          >
-            Найди пару
-          </Button>
-
           {/* Auth Section */}
           <Box sx={{ ml: 2 }}>
             {isAuthenticated ? <UserMenu /> : <DiscordLoginButton />}

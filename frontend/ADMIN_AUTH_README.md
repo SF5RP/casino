@@ -101,7 +101,7 @@ if (!isAuthenticated) {
   return <AdminAuthForm onAuth={authenticate} />;
 }
 
-return <YourAdminContent />;
+return <YourAdminContent/>;
 ```
 
 ### Тестирование

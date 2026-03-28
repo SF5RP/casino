@@ -30,7 +30,7 @@ export async function apiRequest<T>(
   // Add Authorization header if token exists and not skipped
   if (accessToken && !skipAuth) {
     requestHeaders["Authorization"] = `Bearer ${accessToken}`;
-  }
+  }н
 
   const url = endpoint.startsWith("http")
     ? endpoint
