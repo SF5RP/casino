@@ -28,7 +28,7 @@ echo "[frontend] Creating release directory: ${RELEASE_DIR}"
 mkdir -p "${RELEASE_DIR}" "$(dirname "${CURRENT_LINK}")" "$(dirname "${ENV_FILE}")"
 
 echo "[frontend] Extracting archive..."
-tar -xzf "${ARCHIVE_PATH}" -C "${RELEASE_DIR}"
+tar --warning=no-timestamp -xzf "${ARCHIVE_PATH}" -C "${RELEASE_DIR}"
 
 if [ -d "${RELEASE_DIR}/${ARCHIVE_ROOT_DIR}" ]; then
   RELEASE_DIR="${RELEASE_DIR}/${ARCHIVE_ROOT_DIR}"
