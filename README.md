@@ -8,9 +8,7 @@
 casino/
 ├── 🎨 frontend/              # Next.js React application
 ├── ⚡ backend/               # Go server with PostgreSQL
-├── 📚 docs/                  # Complete documentation
-├── 🔧 .github/workflows/     # CI/CD pipelines
-└── 📦 scripts/               # Utility scripts
+└── 📄 README.md              # Project overview
 ```
 
 ## ✨ Features
@@ -86,11 +84,7 @@ casino/
 │   │   ├── handlers/        # HTTP handlers
 │   │   └── models/          # Data models
 │   ├── pkg/websocket/       # WebSocket implementation
-│   ├── deploy/              # Deployment configurations
 │   └── README.md           # Backend documentation
-├── .github/workflows/       # CI/CD pipelines
-├── docs/                    # Documentation
-├── scripts/                 # Utility scripts
 └── README.md               # This file
 ```
 
@@ -161,54 +155,6 @@ See component documentation:
 - [Frontend API Documentation](frontend/README.md)
 - [Backend API Documentation](backend/README.md)
 
-## 🚀 Deployment
-
-### Development
-```bash
-# Start backend (Terminal 1)
-cd backend && ./casino-backend
-
-# Start frontend (Terminal 2)
-cd frontend && npm run dev
-```
-
-### Production
-
-#### Option 1: Separate Services
-```bash
-# Build and start frontend
-cd frontend
-npm run build
-npm start
-
-# Build and start backend
-cd backend
-go build -o casino-backend ./cmd/server
-./casino-backend
-```
-
-#### Option 2: Docker Compose
-```bash
-# Frontend
-cd frontend
-docker build -t casino-frontend .
-
-# Backend
-cd backend
-docker build -t casino-backend .
-
-# Run both
-docker-compose up -d
-```
-
-#### Option 3: Systemd (Linux)
-```bash
-cd backend
-sudo ./deploy/scripts/install.sh
-```
-
-See [Deployment Documentation](docs/LINUX_DEPLOYMENT_SUMMARY.md) for detailed instructions.
-
 ## 📊 Performance
 
 ### Frontend (Next.js)
@@ -223,25 +169,10 @@ See [Deployment Documentation](docs/LINUX_DEPLOYMENT_SUMMARY.md) for detailed in
 - **Throughput**: 50,000+ req/s
 - **WebSocket Connections**: 10,000+
 
-## 🔄 CI/CD
-
-Automated pipelines with GitHub Actions:
-
-- **🧪 Testing** - Unit and integration tests
-- **🏗️ Building** - Frontend and backend builds
-- **🚀 Deployment** - Automatic deployment to staging/production
-- **📊 Monitoring** - Health checks and notifications
-
-See [CI/CD Documentation](docs/CI_CD_QUICK_START.md) for setup instructions.
-
 ## 📚 Documentation
 
 - [📖 **Frontend Guide**](frontend/README.md) - Next.js application documentation
 - [⚙️ **Backend Guide**](backend/README.md) - Go server documentation
-- [🗄️ **Database Migrations**](backend/MIGRATIONS.md) - Migration system guide
-- [📖 **CI/CD Guide**](docs/CI_CD_QUICK_START.md) - Complete CI/CD setup
-- [🐧 **Linux Deployment**](docs/LINUX_DEPLOYMENT_SUMMARY.md) - Production deployment
-- [🔄 **Go Migration Guide**](docs/MIGRATION_TO_GO.md) - Node.js to Go migration
 
 ## 🛠️ Tech Stack
 
@@ -259,13 +190,7 @@ See [CI/CD Documentation](docs/CI_CD_QUICK_START.md) for setup instructions.
 - **WebSocket**: Gorilla WebSocket
 - **Migrations**: Built-in system
 - **Testing**: Go testing framework
-- **Deployment**: Systemd + Nginx
-
-### Infrastructure
-- **CI/CD**: GitHub Actions
-- **Containerization**: Docker (optional)
 - **Monitoring**: Built-in health checks
-- **Deployment**: Linux systemd services
 
 ## 🤝 Contributing
 

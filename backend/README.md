@@ -107,8 +107,6 @@ The application includes a built-in migration system:
 - **Rollback Support** - Safe rollback to previous versions
 - **Transaction Safety** - Each migration runs in a transaction
 
-See [MIGRATIONS.md](MIGRATIONS.md) for detailed documentation.
-
 ## Architecture
 
 ```
@@ -117,8 +115,7 @@ See [MIGRATIONS.md](MIGRATIONS.md) for detailed documentation.
 │   ├── database/        # Database layer with migrations
 │   ├── handlers/        # HTTP request handlers
 │   └── models/          # Data models and types
-├── pkg/websocket/       # WebSocket hub implementation
-└── deploy/             # Deployment configurations
+└── pkg/websocket/       # WebSocket hub implementation
 ```
 
 ## Development
@@ -148,39 +145,6 @@ go test -cover ./...
 
 # Race condition detection
 go test -race ./...
-```
-
-## Deployment
-
-### Systemd Service
-
-The application includes complete systemd service configuration:
-
-```bash
-# Install as systemd service
-sudo ./deploy/scripts/install.sh
-
-# Check service status
-sudo systemctl status casino-backend
-
-# View logs
-sudo journalctl -u casino-backend -f
-```
-
-### Docker (Alternative)
-
-```bash
-# Build image
-docker build -t casino-backend .
-
-# Run container
-docker run -p 8011:8011 -p 8012:8012 \
-  -e DB_HOST=postgres \
-  -e DB_USER=casino_user \
-  -e DB_PASSWORD=casino_password \
-  -e JWT_SECRET=your_jwt_secret \
-  -e API_KEY=your_api_key \
-  casino-backend
 ```
 
 ## Performance
