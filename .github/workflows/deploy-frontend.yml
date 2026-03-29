@@ -87,6 +87,10 @@ jobs:
               echo "Missing frontend env file: ${{ env.REMOTE_BASE_DIR }}/shared/frontend/env/frontend.env" >&2
               exit 1
             fi
+            if ! sudo -n systemctl status casino-frontend >/dev/null 2>&1; then
+              echo "Missing passwordless sudo for systemctl on casino-frontend" >&2
+              exit 1
+            fi
 
       - name: Copy frontend package to server
         uses: appleboy/scp-action@v0.1.7
