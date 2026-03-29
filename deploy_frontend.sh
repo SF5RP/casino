@@ -10,6 +10,20 @@ SERVICE_NAME="casino-frontend"
 ARCHIVE_ROOT_DIR="casino-frontend"
 ENV_FILE="${SHARED_DIR}/env/frontend.env"
 
+restart_service() {
+  if [ "$(id -u)" -eq 0 ]; then
+    systemctl restart "${SERVICE_NAME}"
+    return
+  fi
+
+  if ! sudo -n systemctl status "${SERVICE_NAME}" >/dev/null 2>&1; then
+    echo "[frontend] ERROR: passwordless sudo for systemctl is not configured for ${SERVICE_NAME}" >&2
+    exit 1
+  fi
+
+  sudo -n systemctl restart "${SERVICE_NAME}"
+}
+
 if [ $# -ne 1 ]; then
   echo "Usage: $0 /path/to/frontend.tar.gz"
   exit 1
@@ -57,11 +71,14 @@ set -a
 source "${ENV_FILE}"
 set +a
 
+echo "[frontend] Verifying service restart permissions..."
+restart_service >/dev/null
+
 echo "[frontend] Switching current -> ${RELEASE_DIR}"
 ln -sfn "${RELEASE_DIR}" "${CURRENT_LINK}"
 chown -h deploy:deploy "${CURRENT_LINK}"
 
 echo "[frontend] Restarting service: ${SERVICE_NAME}"
-sudo systemctl restart "${SERVICE_NAME}"
+restart_service
 
 echo "[frontend] Done."
