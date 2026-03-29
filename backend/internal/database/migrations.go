@@ -185,16 +185,12 @@ func (m *MigrationManager) ApplyMigration(migration Migration) error {
 	}
 	defer tx.Rollback()
 
-	// Execute migration SQL
-	statements := splitSQLStatements(migration.Up)
-	for _, stmt := range statements {
-		stmt = strings.TrimSpace(stmt)
-		if stmt == "" {
-			continue
-		}
-
+	// Execute the migration as a single SQL batch so PostgreSQL function bodies
+	// and other compound statements are preserved intact.
+	stmt := strings.TrimSpace(migration.Up)
+	if stmt != "" {
 		if _, err := tx.Exec(stmt); err != nil {
-			return fmt.Errorf("failed to execute migration %d statement '%s': %w", migration.Version, stmt, err)
+			return fmt.Errorf("failed to execute migration %d: %w", migration.Version, err)
 		}
 	}
 
@@ -233,16 +229,11 @@ func (m *MigrationManager) RollbackMigration(migration Migration) error {
 	}
 	defer tx.Rollback()
 
-	// Execute rollback SQL
-	statements := splitSQLStatements(migration.Down)
-	for _, stmt := range statements {
-		stmt = strings.TrimSpace(stmt)
-		if stmt == "" {
-			continue
-		}
-
+	// Execute the rollback as a single SQL batch for the same reason as ApplyMigration.
+	stmt := strings.TrimSpace(migration.Down)
+	if stmt != "" {
 		if _, err := tx.Exec(stmt); err != nil {
-			return fmt.Errorf("failed to execute rollback %d statement '%s': %w", migration.Version, stmt, err)
+			return fmt.Errorf("failed to execute rollback %d: %w", migration.Version, err)
 		}
 	}
 
