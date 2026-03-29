@@ -47,6 +47,10 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           known_hosts: ${{ secrets.VPS_HOST }}
 
+      - name: Add known hosts (ssh-keyscan fallback)
+        run: |
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts || true
+
       - name: Upload backend deploy script
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -71,8 +75,8 @@ jobs:
               echo "Missing backend env file: ${{ env.REMOTE_BASE_DIR }}/shared/backend/env/backend.env" >&2
               exit 1
             fi
-            if ! sudo -n systemctl status casino-backend >/dev/null 2>&1; then
-              echo "Missing passwordless sudo for systemctl on casino-backend" >&2
+            if ! sudo -n systemctl cat casino-backend >/dev/null 2>&1; then
+              echo "casino-backend unit missing or no passwordless sudo for systemctl" >&2
               exit 1
             fi
 
