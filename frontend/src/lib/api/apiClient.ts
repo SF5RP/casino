@@ -8,6 +8,26 @@ interface RequestConfig extends RequestInit {
   skipAuth?: boolean;
 }
 
+function buildHeaders(
+  initial: HeadersInit | undefined,
+  accessToken: string | null | undefined,
+  skipAuth: boolean
+): Headers {
+  const h = new Headers();
+  h.set("Content-Type", "application/json");
+  if (initial instanceof Headers) {
+    initial.forEach((value, key) => h.set(key, value));
+  } else if (Array.isArray(initial)) {
+    for (const [key, value] of initial) h.set(key, value);
+  } else if (initial && typeof initial === "object") {
+    for (const [key, value] of Object.entries(initial)) {
+      if (value != null) h.set(key, String(value));
+    }
+  }
+  if (accessToken && !skipAuth) h.set("Authorization", `Bearer ${accessToken}`);
+  return h;
+}
+
 /**
  * Enhanced fetch with automatic JWT injection and refresh
  */
@@ -15,22 +35,13 @@ export async function apiRequest<T>(
   endpoint: string,
   config: RequestConfig = {}
 ): Promise<T> {
-  const { skipAuth = false, headers = {}, ...restConfig } = config;
+  const { skipAuth = false, headers: inputHeaders, ...restConfig } = config;
 
   // Get current access token from Redux store
   const state = store.getState();
   const accessToken = state.auth.accessToken;
 
-  // Prepare headers
-  const requestHeaders: HeadersInit = {
-    "Content-Type": "application/json",
-    ...headers,
-  };
-
-  // Add Authorization header if token exists and not skipped
-  if (accessToken && !skipAuth) {
-    requestHeaders["Authorization"] = `Bearer ${accessToken}`;
-  }н
+  const requestHeaders = buildHeaders(inputHeaders, accessToken, skipAuth);
 
   const url = endpoint.startsWith("http")
     ? endpoint
@@ -53,7 +64,7 @@ export async function apiRequest<T>(
         store.dispatch(updateAccessToken(newToken));
 
         // Retry request with new token
-        requestHeaders["Authorization"] = `Bearer ${newToken}`;
+        requestHeaders.set("Authorization", `Bearer ${newToken}`);
         const retryResponse = await fetch(url, {
           ...restConfig,
           headers: requestHeaders,

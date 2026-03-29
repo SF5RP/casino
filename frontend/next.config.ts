@@ -2,6 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "cdn.discordapp.com", pathname: "/**" },
+      { protocol: "https", hostname: "media.discordapp.net", pathname: "/**" },
+      { protocol: "https", hostname: "avatars.githubusercontent.com", pathname: "/**" },
+      { protocol: "https", hostname: "lh3.googleusercontent.com", pathname: "/**" },
+    ],
+  },
   // Добавляем прокси для API запросов в режиме разработки
   async rewrites() {
     const isDevelopment = process.env.NODE_ENV === "development";

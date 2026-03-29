@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { useAuth } from "@/features/auth";
 
 export function UserMenu() {
@@ -40,10 +41,12 @@ export function UserMenu() {
             className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors"
         >
           {user.avatar ? (
-              <img
+              <Image
                   src={user.avatar}
                   alt={user.username}
-                  className="w-8 h-8 rounded-full"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 rounded-full object-cover"
               />
           ) : (
               <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold">
