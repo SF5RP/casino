@@ -439,7 +439,7 @@ func generateChecksum(content string) string {
 	if len(content) == 0 {
 		return "empty"
 	}
-	
+
 	hash := len(content)
 	if len(content) > 0 {
 		hash += int(content[0])
@@ -447,36 +447,129 @@ func generateChecksum(content string) string {
 	if len(content) > 1 {
 		hash += int(content[len(content)-1])
 	}
-	
+
 	return strconv.Itoa(hash)
 }
 
-// splitSQLStatements splits SQL by semicolons for simple cases
+// splitSQLStatements splits SQL on statement terminators while preserving
+// semicolons that appear inside quoted strings or PostgreSQL dollar-quoted blocks.
 func splitSQLStatements(sql string) []string {
-	// Remove comments
-	lines := strings.Split(sql, "\n")
-	var cleanLines []string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" && !strings.HasPrefix(line, "--") {
-			cleanLines = append(cleanLines, line)
-		}
-	}
-	cleanSQL := strings.Join(cleanLines, "\n")
-	
-	// Simple split by semicolon
-	parts := strings.Split(cleanSQL, ";")
 	var statements []string
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part != "" {
-			statements = append(statements, part)
+	var current strings.Builder
+
+	inSingleQuote := false
+	inDoubleQuote := false
+	dollarQuoteTag := ""
+
+	for i := 0; i < len(sql); i++ {
+		ch := sql[i]
+
+		// Skip line comments when not inside a quoted block.
+		if !inSingleQuote && !inDoubleQuote && dollarQuoteTag == "" &&
+			ch == '-' && i+1 < len(sql) && sql[i+1] == '-' {
+			for i < len(sql) && sql[i] != '\n' {
+				i++
+			}
+			continue
 		}
+
+		if dollarQuoteTag != "" {
+			current.WriteByte(ch)
+			if strings.HasPrefix(sql[i:], dollarQuoteTag) {
+				for j := 1; j < len(dollarQuoteTag); j++ {
+					current.WriteByte(sql[i+j])
+				}
+				i += len(dollarQuoteTag) - 1
+				dollarQuoteTag = ""
+			}
+			continue
+		}
+
+		if inSingleQuote {
+			current.WriteByte(ch)
+			if ch == '\'' {
+				// PostgreSQL escapes single quotes as ''.
+				if i+1 < len(sql) && sql[i+1] == '\'' {
+					current.WriteByte(sql[i+1])
+					i++
+				} else {
+					inSingleQuote = false
+				}
+			}
+			continue
+		}
+
+		if inDoubleQuote {
+			current.WriteByte(ch)
+			if ch == '"' {
+				if i+1 < len(sql) && sql[i+1] == '"' {
+					current.WriteByte(sql[i+1])
+					i++
+				} else {
+					inDoubleQuote = false
+				}
+			}
+			continue
+		}
+
+		if ch == '\'' {
+			inSingleQuote = true
+			current.WriteByte(ch)
+			continue
+		}
+
+		if ch == '"' {
+			inDoubleQuote = true
+			current.WriteByte(ch)
+			continue
+		}
+
+		if ch == '$' {
+			tag := readDollarQuoteTag(sql[i:])
+			if tag != "" {
+				dollarQuoteTag = tag
+				current.WriteString(tag)
+				i += len(tag) - 1
+				continue
+			}
+		}
+
+		if ch == ';' {
+			statement := strings.TrimSpace(current.String())
+			if statement != "" {
+				statements = append(statements, statement)
+			}
+			current.Reset()
+			continue
+		}
+
+		current.WriteByte(ch)
 	}
-	
+
+	if tail := strings.TrimSpace(current.String()); tail != "" {
+		statements = append(statements, tail)
+	}
+
 	return statements
 }
 
-func isWhitespace(r rune) bool {
-	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
+func readDollarQuoteTag(s string) string {
+	if len(s) < 2 || s[0] != '$' {
+		return ""
+	}
+
+	for i := 1; i < len(s); i++ {
+		ch := s[i]
+		if ch == '$' {
+			return s[:i+1]
+		}
+		if (ch < 'a' || ch > 'z') &&
+			(ch < 'A' || ch > 'Z') &&
+			(ch < '0' || ch > '9') &&
+			ch != '_' {
+			return ""
+		}
+	}
+
+	return ""
 }
