@@ -16,12 +16,10 @@ restart_service() {
     return
   fi
 
-  if ! sudo -n systemctl status "${SERVICE_NAME}" >/dev/null 2>&1; then
-    echo "[frontend] ERROR: passwordless sudo for systemctl is not configured for ${SERVICE_NAME}" >&2
+  if ! sudo -n systemctl restart "${SERVICE_NAME}"; then
+    echo "[frontend] ERROR: systemctl restart ${SERVICE_NAME} failed (check passwordless sudo for this unit)" >&2
     exit 1
   fi
-
-  sudo -n systemctl restart "${SERVICE_NAME}"
 }
 
 if [ $# -ne 1 ]; then
@@ -70,9 +68,6 @@ echo "[frontend] Loading env from ${ENV_FILE}..."
 set -a
 source "${ENV_FILE}"
 set +a
-
-echo "[frontend] Verifying service restart permissions..."
-restart_service >/dev/null
 
 echo "[frontend] Switching current -> ${RELEASE_DIR}"
 ln -sfn "${RELEASE_DIR}" "${CURRENT_LINK}"

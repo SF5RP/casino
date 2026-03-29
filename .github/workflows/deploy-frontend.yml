@@ -81,8 +81,8 @@ jobs:
               echo "Missing frontend env file: ${{ env.REMOTE_BASE_DIR }}/shared/frontend/env/frontend.env" >&2
               exit 1
             fi
-            if ! sudo -n systemctl cat casino-frontend >/dev/null 2>&1; then
-              echo "casino-frontend unit missing or no passwordless sudo for systemctl" >&2
+            if ! systemctl cat casino-frontend >/dev/null 2>&1; then
+              echo "systemd unit casino-frontend not found (install unit in /etc/systemd/system first)" >&2
               exit 1
             fi
 

@@ -68,8 +68,8 @@ jobs:
               echo "Missing backend env file: ${{ env.REMOTE_BASE_DIR }}/shared/backend/env/backend.env" >&2
               exit 1
             fi
-            if ! sudo -n systemctl cat casino-backend >/dev/null 2>&1; then
-              echo "casino-backend unit missing or no passwordless sudo for systemctl" >&2
+            if ! systemctl cat casino-backend >/dev/null 2>&1; then
+              echo "systemd unit casino-backend not found (install unit in /etc/systemd/system first)" >&2
               exit 1
             fi
 

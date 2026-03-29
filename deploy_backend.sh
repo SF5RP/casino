@@ -17,12 +17,10 @@ restart_service() {
     return
   fi
 
-  if ! sudo -n systemctl status "${SERVICE_NAME}" >/dev/null 2>&1; then
-    echo "[backend] ERROR: passwordless sudo for systemctl is not configured for ${SERVICE_NAME}" >&2
+  if ! sudo -n systemctl restart "${SERVICE_NAME}"; then
+    echo "[backend] ERROR: systemctl restart ${SERVICE_NAME} failed (check passwordless sudo for this unit)" >&2
     exit 1
   fi
-
-  sudo -n systemctl restart "${SERVICE_NAME}"
 }
 
 if [ $# -ne 1 ]; then
@@ -69,9 +67,6 @@ set +a
 
 echo "[backend] Running built-in migrations..."
 "${RELEASE_DIR}/${BINARY_NAME}" migrate
-
-echo "[backend] Verifying service restart permissions..."
-restart_service >/dev/null
 
 echo "[backend] Switching current -> ${RELEASE_DIR}"
 ln -sfn "${RELEASE_DIR}" "${CURRENT_LINK}"
