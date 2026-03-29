@@ -33,11 +33,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: yarn
+          cache: 'yarn'
           cache-dependency-path: frontend/yarn.lock
 
       - name: Enable Corepack
         run: corepack enable
+
+      - name: Activate Yarn 4.9.1
+        run: corepack prepare yarn@4.9.1 --activate
 
       - name: Install frontend dependencies
         working-directory: frontend
