@@ -81,8 +81,12 @@ jobs:
               echo "Missing frontend env file: ${{ env.REMOTE_BASE_DIR }}/shared/frontend/env/frontend.env" >&2
               exit 1
             fi
-            if ! systemctl cat casino-frontend >/dev/null 2>&1; then
-              echo "systemd unit casino-frontend not found (install unit in /etc/systemd/system first)" >&2
+            unit_found=
+            for p in /etc/systemd/system/casino-frontend.service /lib/systemd/system/casino-frontend.service /usr/lib/systemd/system/casino-frontend.service; do
+              if [ -f "$p" ]; then unit_found=1; break; fi
+            done
+            if [ -z "$unit_found" ]; then
+              echo "casino-frontend.service not found. Copy deploy/systemd/casino-frontend.service.example to /etc/systemd/system/casino-frontend.service, daemon-reload, enable." >&2
               exit 1
             fi
 

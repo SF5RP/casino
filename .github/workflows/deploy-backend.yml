@@ -68,8 +68,12 @@ jobs:
               echo "Missing backend env file: ${{ env.REMOTE_BASE_DIR }}/shared/backend/env/backend.env" >&2
               exit 1
             fi
-            if ! systemctl cat casino-backend >/dev/null 2>&1; then
-              echo "systemd unit casino-backend not found (install unit in /etc/systemd/system first)" >&2
+            unit_found=
+            for p in /etc/systemd/system/casino-backend.service /lib/systemd/system/casino-backend.service /usr/lib/systemd/system/casino-backend.service; do
+              if [ -f "$p" ]; then unit_found=1; break; fi
+            done
+            if [ -z "$unit_found" ]; then
+              echo "casino-backend.service not found. Copy deploy/systemd/casino-backend.service.example to /etc/systemd/system/casino-backend.service, daemon-reload, enable." >&2
               exit 1
             fi
 
