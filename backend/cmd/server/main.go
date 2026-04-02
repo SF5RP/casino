@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"casino-backend/internal/auth"
 	"casino-backend/internal/database"
 	grpcHandler "casino-backend/internal/grpc"
 	"casino-backend/internal/handlers"
@@ -92,7 +93,7 @@ func main() {
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ticker.C:
@@ -103,22 +104,37 @@ func main() {
 		}
 	}()
 
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "your-default-super-secret-key-for-dev" // НЕ ИСПОЛЬЗОВАТЬ В ПРОДЕ
-		log.Println("⚠️ JWT_SECRET not set, using default insecure key")
+	authConfig, err := auth.LoadConfigFromEnv()
+	if err != nil {
+		log.Fatalf("Failed to load auth verification config: %v", err)
+	}
+
+	authVerifier, err := auth.NewVerifier(authConfig)
+	if err != nil {
+		log.Fatalf("Failed to initialize auth verifier: %v", err)
+	}
+
+	roomJWTSecret := os.Getenv("ROOM_JWT_SECRET")
+	if roomJWTSecret == "" {
+		roomJWTSecret = os.Getenv("JWT_SECRET")
+		if roomJWTSecret == "" {
+			roomJWTSecret = "your-default-room-secret-for-dev" // НЕ ИСПОЛЬЗОВАТЬ В ПРОДЕ
+			log.Println("⚠️ ROOM_JWT_SECRET not set, using default insecure room secret")
+		} else {
+			log.Println("⚠️ Using deprecated JWT_SECRET fallback for room tokens; switch to ROOM_JWT_SECRET")
+		}
 	}
 
 	// Create WebSocket hub
-	wsHub := websocket.NewHub(repo, []byte(jwtSecret))
+	wsHub := websocket.NewHub(repo, []byte(roomJWTSecret))
 	go wsHub.Run()
 
 	// Create handlers
-	rouletteHandler := handlers.NewRouletteHandler(repo, jwtSecret)
-    adminHandler := handlers.NewAdminHandler(repo, wsHub)
+	rouletteHandler := handlers.NewRouletteHandler(repo, roomJWTSecret)
+	adminHandler := handlers.NewAdminHandler(repo, wsHub)
 	healthHandler := handlers.NewHealthHandler(repo, db)
 
-    // Setup routes
+	// Setup routes
 	router := mux.NewRouter()
 
 	// API routes
@@ -127,11 +143,11 @@ func main() {
 	// Register roulette routes
 	rouletteHandler.RegisterRoutes(api)
 
-    // Admin API routes (protected with JWT and admin role)
-    jwtMW := handlers.NewJWTMiddleware([]byte(jwtSecret))
-    adminRoleMW := handlers.RequireRoleMiddleware("admin")
-    adminHandler.RegisterAdminRoutes(router, jwtMW, adminRoleMW)
-	
+	// Admin API routes (protected with JWT and admin role)
+	jwtMW := handlers.NewJWTMiddleware(authVerifier)
+	adminRoleMW := handlers.RequireRoleMiddleware("admin")
+	adminHandler.RegisterAdminRoutes(router, jwtMW, adminRoleMW)
+
 	// Health check routes
 	healthHandler.RegisterHealthRoutes(router)
 
@@ -141,20 +157,20 @@ func main() {
 	// Health check endpoint
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		
+
 		// Check repository health
 		repoStats := repo.GetStats()
 		repoStatus := repoStats["status"].(string)
-		
+
 		// Overall health status
 		overallStatus := "ok"
 		statusCode := http.StatusOK
-		
+
 		if repoStatus != "active" {
 			overallStatus = "degraded"
 			statusCode = http.StatusServiceUnavailable
 		}
-		
+
 		// Build response
 		response := map[string]interface{}{
 			"status":     overallStatus,
@@ -162,14 +178,14 @@ func main() {
 			"repository": repoStats,
 			"info":       repo.Info(),
 		}
-		
+
 		// Add migration status if database is available
 		if db != nil {
 			if migrationStatus, err := db.GetMigrationStatus(); err == nil {
 				response["migrations"] = migrationStatus
 			}
 		}
-		
+
 		// Convert to JSON
 		jsonData, err := json.Marshal(response)
 		if err != nil {
@@ -177,7 +193,7 @@ func main() {
 			w.Write([]byte(`{"status":"error","message":"Failed to generate health response"}`))
 			return
 		}
-		
+
 		w.WriteHeader(statusCode)
 		w.Write(jsonData)
 	}).Methods("GET")
@@ -185,8 +201,8 @@ func main() {
 	// Static files (optional, for serving frontend)
 	// router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 
-    // CORS middleware
-    router.Use(corsMiddleware)
+	// CORS middleware
+	router.Use(corsMiddleware)
 
 	// Get ports from environment or use defaults
 	httpPort := os.Getenv("PORT")
@@ -213,7 +229,7 @@ func main() {
 	}
 
 	grpcSrv := grpc.NewServer()
-	grpcHandler.RegisterGRPCServer(grpcSrv, repo, jwtSecret)
+	grpcHandler.RegisterGRPCServer(grpcSrv, repo, roomJWTSecret, authVerifier)
 
 	// Setup graceful shutdown
 	c := make(chan os.Signal, 1)
@@ -238,7 +254,7 @@ func main() {
 	// Wait for interrupt signal
 	<-c
 	log.Println("Shutting down servers...")
-	
+
 	// Graceful shutdown
 	grpcSrv.GracefulStop()
 	log.Println("gRPC server stopped")
@@ -336,10 +352,10 @@ func handleRollbackCommand() {
 func handleResetMigrationsCommand() {
 	fmt.Printf("⚠️  WARNING: This will drop all tables and reset all migrations!\n")
 	fmt.Printf("Are you sure you want to continue? (yes/no): ")
-	
+
 	var response string
 	fmt.Scanln(&response)
-	
+
 	if response != "yes" {
 		fmt.Println("Operation cancelled.")
 		return
@@ -352,7 +368,7 @@ func handleResetMigrationsCommand() {
 	defer db.Close()
 
 	log.Println("Resetting all migrations...")
-	
+
 	// Get all applied migrations and rollback them all
 	status, err := db.GetMigrationStatus()
 	if err != nil {
@@ -442,6 +458,11 @@ func printHelp() {
 	fmt.Printf("  DB_NAME        Database name (default: casino_db)\n")
 	fmt.Printf("  DB_SSL_MODE    SSL mode (default: disable)\n")
 	fmt.Printf("  PORT           Server port (default: 8011)\n\n")
+	fmt.Printf("  AUTH_VERIFICATION_MODE   introspection|jwks (default: introspection)\n")
+	fmt.Printf("  AUTH_SERVICE_URL         Used for remote verification fallback to /api/me\n")
+	fmt.Printf("  AUTH_INTROSPECTION_URL   Optional explicit remote verification URL\n")
+	fmt.Printf("  AUTH_JWKS_URL            JWKS endpoint for jwks mode\n")
+	fmt.Printf("  ROOM_JWT_SECRET          Secret for internal room tokens\n\n")
 	fmt.Printf("API Endpoints:\n")
 	fmt.Printf("  GET  /health                      Health check\n")
 	fmt.Printf("  GET  /api/migrations/status       Migration status\n")
@@ -452,31 +473,31 @@ func printHelp() {
 
 // CORS middleware
 func corsMiddleware(next http.Handler) http.Handler {
-    allowedOrigin := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
+	allowedOrigin := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
 
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        origin := r.Header.Get("Origin")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
 
-        // Always vary by Origin because response headers depend on it
-        w.Header().Set("Vary", "Origin")
-        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		// Always vary by Origin because response headers depend on it
+		w.Header().Set("Vary", "Origin")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-        if allowedOrigin != "" && origin == allowedOrigin {
-            // Strict allowlist mode with credentials
-            w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
-            w.Header().Set("Access-Control-Allow-Credentials", "true")
-        } else if allowedOrigin == "" {
-            // Safe fallback: allow any origin but without credentials
-            w.Header().Set("Access-Control-Allow-Origin", "*")
-            // Do NOT set Access-Control-Allow-Credentials in this mode
-        }
+		if allowedOrigin != "" && origin == allowedOrigin {
+			// Strict allowlist mode with credentials
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		} else if allowedOrigin == "" {
+			// Safe fallback: allow any origin but without credentials
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			// Do NOT set Access-Control-Allow-Credentials in this mode
+		}
 
-        if r.Method == http.MethodOptions {
-            w.WriteHeader(http.StatusNoContent)
-            return
-        }
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 
-        next.ServeHTTP(w, r)
-    })
+		next.ServeHTTP(w, r)
+	})
 }

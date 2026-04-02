@@ -14,7 +14,10 @@ export function DiscordLoginButton({
 
   const handleLogin = useCallback(() => {
     // Save current location to return after auth
-    sessionStorage.setItem("auth_return_url", window.location.pathname);
+    sessionStorage.setItem(
+      "auth_return_url",
+      `${window.location.pathname}${window.location.search}${window.location.hash}`
+    );
     login();
   }, [login]);
 

@@ -13,6 +13,7 @@ export default function AuthCallbackPage() {
       const success = await handleCallback();
 
       if (success) {
+        window.history.replaceState({}, document.title, "/auth/callback");
         // Redirect to home page or where they came from
         const returnUrl = sessionStorage.getItem("auth_return_url") || "/";
         sessionStorage.removeItem("auth_return_url");

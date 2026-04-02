@@ -24,5 +24,4 @@ export { ConnectionStatus } from "./ConnectionStatus";
 export { DistributionCharts } from "./DistributionCharts";
 
 // Admin components
-export { AdminAuthForm } from "./adminAuth/AdminAuthForm";
 export { DatabaseStatusAlert } from "./admin/DatabaseStatusAlert";

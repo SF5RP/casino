@@ -65,7 +65,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
           source: "frontend/deploy/deploy_frontend.sh"
-          target: "${{ env.REMOTE_BASE_DIR }}"
+          target: "${{ secrets.env.REMOTE_BASE_DIR }}"
 
       - name: Check frontend deploy prerequisites
         uses: appleboy/ssh-action@v1.0.0
@@ -97,8 +97,8 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          source: "frontend/${{ env.REMOTE_ARCHIVE }}"
-          target: "${{ env.REMOTE_TMP_DIR }}"
+          source: "frontend/${{ secrets.env.REMOTE_ARCHIVE }}"
+          target: "${{ secrets.env.REMOTE_TMP_DIR }}"
 
       - name: Run frontend deploy
         uses: appleboy/ssh-action@v1.0.0

@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"casino-backend/internal/auth"
 	"casino-backend/internal/database"
 	"casino-backend/internal/models"
 	pb "casino-backend/proto"
@@ -20,20 +21,26 @@ import (
 // RouletteGRPCServer реализует gRPC сервис для рулетки
 type RouletteGRPCServer struct {
 	pb.UnimplementedRouletteServiceServer
-	repo      database.RouletteRepositoryInterface
-	jwtSecret []byte
+	repo          database.RouletteRepositoryInterface
+	roomJWTSecret []byte
+	authVerifier  auth.TokenVerifier
 }
 
 // NewRouletteGRPCServer создает новый gRPC сервер для рулетки
-func NewRouletteGRPCServer(repo database.RouletteRepositoryInterface, jwtSecret string) *RouletteGRPCServer {
+func NewRouletteGRPCServer(
+	repo database.RouletteRepositoryInterface,
+	roomJWTSecret string,
+	authVerifier auth.TokenVerifier,
+) *RouletteGRPCServer {
 	return &RouletteGRPCServer{
-		repo:      repo,
-		jwtSecret: []byte(jwtSecret),
+		repo:          repo,
+		roomJWTSecret: []byte(roomJWTSecret),
+		authVerifier:  authVerifier,
 	}
 }
 
-// authenticateToken проверяет JWT токен из метаданных
-func (s *RouletteGRPCServer) authenticateToken(ctx context.Context) (string, error) {
+// authenticateRoomToken проверяет room JWT токен из метаданных.
+func (s *RouletteGRPCServer) authenticateRoomToken(ctx context.Context) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return "", status.Error(codes.Unauthenticated, "missing metadata")
@@ -53,7 +60,7 @@ func (s *RouletteGRPCServer) authenticateToken(ctx context.Context) (string, err
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, status.Error(codes.Unauthenticated, "unexpected signing method")
 		}
-		return s.jwtSecret, nil
+		return s.roomJWTSecret, nil
 	})
 
 	if err != nil {
@@ -67,6 +74,33 @@ func (s *RouletteGRPCServer) authenticateToken(ctx context.Context) (string, err
 	}
 
 	return "", status.Error(codes.Unauthenticated, "invalid token claims")
+}
+
+func (s *RouletteGRPCServer) authenticateAdmin(ctx context.Context) (*auth.Claims, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+
+	tokens := md.Get("authorization")
+	if len(tokens) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "missing authorization token")
+	}
+
+	tokenString, err := auth.ExtractBearerToken(tokens[0])
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	claims, err := s.authVerifier.VerifyToken(ctx, tokenString)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid token")
+	}
+	if claims.Role != "admin" {
+		return nil, status.Error(codes.PermissionDenied, "admin role required")
+	}
+
+	return claims, nil
 }
 
 // convertToProtoNumber конвертирует models.RouletteNumber в pb.RouletteNumber
@@ -180,7 +214,7 @@ func (s *RouletteGRPCServer) AuthenticateRoom(ctx context.Context, req *pb.Authe
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(s.jwtSecret)
+	tokenString, err := token.SignedString(s.roomJWTSecret)
 	if err != nil {
 		return &pb.AuthenticateRoomResponse{
 			Success: false,
@@ -198,7 +232,7 @@ func (s *RouletteGRPCServer) AuthenticateRoom(ctx context.Context, req *pb.Authe
 // GetHistory получает историю чисел для комнаты
 func (s *RouletteGRPCServer) GetHistory(ctx context.Context, req *pb.GetHistoryRequest) (*pb.GetHistoryResponse, error) {
 	// Проверяем авторизацию
-	authKey, err := s.authenticateToken(ctx)
+	authKey, err := s.authenticateRoomToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +269,7 @@ func (s *RouletteGRPCServer) GetHistory(ctx context.Context, req *pb.GetHistoryR
 // SaveNumber сохраняет новое число в комнате
 func (s *RouletteGRPCServer) SaveNumber(ctx context.Context, req *pb.SaveNumberRequest) (*pb.SaveNumberResponse, error) {
 	// Проверяем авторизацию
-	authKey, err := s.authenticateToken(ctx)
+	authKey, err := s.authenticateRoomToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +305,7 @@ func (s *RouletteGRPCServer) SaveNumber(ctx context.Context, req *pb.SaveNumberR
 // UpdateHistory обновляет историю чисел в комнате
 func (s *RouletteGRPCServer) UpdateHistory(ctx context.Context, req *pb.UpdateHistoryRequest) (*pb.UpdateHistoryResponse, error) {
 	// Проверяем авторизацию
-	authKey, err := s.authenticateToken(ctx)
+	authKey, err := s.authenticateRoomToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +349,7 @@ func (s *RouletteGRPCServer) UpdateHistory(ctx context.Context, req *pb.UpdateHi
 // GetSessions получает все сессии (только для админов)
 func (s *RouletteGRPCServer) GetSessions(ctx context.Context, req *pb.GetSessionsRequest) (*pb.GetSessionsResponse, error) {
 	// Проверяем авторизацию (можно расширить для админских прав)
-	_, err := s.authenticateToken(ctx)
+	_, err := s.authenticateAdmin(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +378,7 @@ func (s *RouletteGRPCServer) GetSessions(ctx context.Context, req *pb.GetSession
 // StreamNumbers реализует потоковую передачу чисел в реальном времени
 func (s *RouletteGRPCServer) StreamNumbers(req *pb.StreamNumbersRequest, stream pb.RouletteService_StreamNumbersServer) error {
 	// Проверяем авторизацию
-	authKey, err := s.authenticateToken(stream.Context())
+	authKey, err := s.authenticateRoomToken(stream.Context())
 	if err != nil {
 		return err
 	}
@@ -441,7 +475,12 @@ func isValidRouletteNumber(number models.RouletteNumber) bool {
 }
 
 // RegisterGRPCServer регистрирует gRPC сервис
-func RegisterGRPCServer(s *grpc.Server, repo database.RouletteRepositoryInterface, jwtSecret string) {
-	grpcServer := NewRouletteGRPCServer(repo, jwtSecret)
+func RegisterGRPCServer(
+	s *grpc.Server,
+	repo database.RouletteRepositoryInterface,
+	roomJWTSecret string,
+	authVerifier auth.TokenVerifier,
+) {
+	grpcServer := NewRouletteGRPCServer(repo, roomJWTSecret, authVerifier)
 	pb.RegisterRouletteServiceServer(s, grpcServer)
 }

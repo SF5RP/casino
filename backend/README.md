@@ -55,8 +55,14 @@ GRPC_PORT=8012           # gRPC server port
 # CORS Configuration
 FRONTEND_URL=             # Frontend URL for CORS (empty = allow all)
 
+# Auth verification
+AUTH_SERVICE_URL=http://localhost:8000
+AUTH_VERIFICATION_MODE=introspection
+AUTH_INTROSPECTION_URL=
+AUTH_JWKS_URL=
+
 # Security
-JWT_SECRET=your_jwt_secret_key_here
+ROOM_JWT_SECRET=your_room_jwt_secret_here
 API_KEY=your_api_key_here
 ```
 
@@ -106,6 +112,23 @@ The application includes a built-in migration system:
 - **HTTP API** - Manage migrations via REST API
 - **Rollback Support** - Safe rollback to previous versions
 - **Transaction Safety** - Each migration runs in a transaction
+
+## Auth Verification
+
+Backend now separates two token classes:
+
+- **Auth-service user tokens** for roles and admin access
+- **Internal room tokens** issued by this backend for room/gRPC access
+
+User token verification modes:
+
+- `AUTH_VERIFICATION_MODE=introspection`
+  - verifies tokens remotely
+  - if `AUTH_INTROSPECTION_URL` is empty, backend uses `AUTH_SERVICE_URL/api/me`
+- `AUTH_VERIFICATION_MODE=jwks`
+  - verifies JWT locally via `AUTH_JWKS_URL`
+
+Internal room tokens still use `ROOM_JWT_SECRET`.
 
 ## Architecture
 

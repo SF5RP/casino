@@ -1,0 +1,24 @@
+# Установка на сервере:
+#   sudo cp casino-backend.service.example /etc/systemd/system/casino-backend.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now casino-backend
+#
+# Sudoers для пользователя деплоя (пример):
+#   deploy ALL=(ALL) NOPASSWD:/bin/systemctl restart casino-backend
+
+[Unit]
+Description=Casino backend API
+After=network.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/srv/casino/current/backend
+EnvironmentFile=/srv/casino/shared/backend/env/backend.env
+ExecStart=/srv/casino/current/backend/casino-server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

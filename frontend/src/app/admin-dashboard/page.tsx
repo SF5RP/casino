@@ -24,6 +24,8 @@ import {
 } from "@mui/material";
 import { useDatabaseStatus } from "@/components/casino/hooks";
 import { DatabaseStatusAlert } from "@/components/casino/components/admin/DatabaseStatusAlert";
+import { useAuth } from "@/features/auth";
+import { api } from "@/lib/api/apiClient";
 
 interface Connection {
   id: string;
@@ -55,6 +57,7 @@ interface AdminStats {
 }
 
 function AdminDashboardPage() {
+  const { user, isAuthenticated, isLoading: authLoading, initialize, login } = useAuth();
   const {
     isConnected: dbConnected,
     isChecking: dbChecking,
@@ -78,26 +81,14 @@ function AdminDashboardPage() {
   const fetchSessions = async () => {
     try {
       setLoading(true);
-
-      // Получаем данные с реального API
-      const isDevelopment = process.env.NODE_ENV === "development";
-      const apiUrl = isDevelopment
-        ? "/api"
-        : process.env.NEXT_PUBLIC_API_URL || "/api";
-      const response = await fetch(`${apiUrl}/admin/sessions`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch sessions");
-      }
-
-      const sessions = await response.json();
+      const sessions = await api.get<Session[]>("/admin/sessions");
       setSessions(sessions);
 
       // Получаем статистику
-      const statsResponse = await fetch(`${apiUrl}/admin/stats`);
-      if (statsResponse.ok) {
-        const stats = await statsResponse.json();
+      try {
+        const stats = await api.get<AdminStats>("/admin/stats");
         setStats(stats);
-      } else {
+      } catch {
         // Fallback: вычисляем статистику локально
         const activeSessions = sessions.filter(
           (s: Session) => s.activeConnections > 0
@@ -131,32 +122,24 @@ function AdminDashboardPage() {
   };
 
   useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== "admin") return;
     fetchSessions();
     const interval = setInterval(fetchSessions, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthenticated, user?.role]);
 
   const handleViewHistory = async (session: Session) => {
     setSelectedSession(session);
 
     try {
-      const isDevelopment = process.env.NODE_ENV === "development";
-      const apiUrl = isDevelopment
-        ? "/api"
-        : process.env.NEXT_PUBLIC_API_URL || "/api";
-      const response = await fetch(
-        `${apiUrl}/admin/sessions/${session.key}/history`
+      const history = await api.get<number[]>(
+        `/admin/sessions/${session.key}/history`
       );
-      if (response.ok) {
-        const history = await response.json();
-        setSessionHistory(history);
-      } else {
-        // Fallback: генерируем моковую историю
-        const mockHistory = Array.from({ length: session.historyLength }, () =>
-          Math.floor(Math.random() * 37)
-        );
-        setSessionHistory(mockHistory);
-      }
+      setSessionHistory(history);
     } catch (error) {
       console.error("Failed to fetch history:", error);
       // Fallback: генерируем моковую историю
@@ -184,6 +167,35 @@ function AdminDashboardPage() {
     const days = Math.floor(hours / 24);
     return `${days} дн назад`;
   };
+
+  if (authLoading) {
+    return (
+      <Box sx={{ p: 3, minHeight: "100vh", backgroundColor: "#0a0a0a" }}>
+        <Typography color="white">Загрузка...</Typography>
+      </Box>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Box sx={{ p: 3, minHeight: "100vh", backgroundColor: "#0a0a0a" }}>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Для доступа к админ-панели нужен вход через auth-service.
+        </Alert>
+        <Button variant="contained" onClick={login}>
+          Войти
+        </Button>
+      </Box>
+    );
+  }
+
+  if (user?.role !== "admin") {
+    return (
+      <Box sx={{ p: 3, minHeight: "100vh", backgroundColor: "#0a0a0a" }}>
+        <Alert severity="warning">Недостаточно прав. Требуется роль admin.</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3, minHeight: "100vh", backgroundColor: "#0a0a0a" }}>

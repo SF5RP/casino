@@ -1,6 +1,7 @@
 import { store } from "@/store";
 import { refreshAccessToken } from "@/features/auth/authApi";
 import { updateAccessToken, clearAuth } from "@/features/auth";
+import { clearStoredTokens, getStoredRefreshToken, storeTokens } from "@/features/auth/authStorage";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8011";
 
@@ -57,11 +58,19 @@ export async function apiRequest<T>(
     if (response.status === 401 && !skipAuth) {
       console.log("Access token expired, attempting refresh...");
 
-      const newToken = await refreshAccessToken();
+      const refreshToken = state.auth.refreshToken || getStoredRefreshToken();
+      if (!refreshToken) {
+        store.dispatch(clearAuth());
+        clearStoredTokens();
+        throw new Error("Authentication expired. Please log in again.");
+      }
+
+      const newToken = await refreshAccessToken(refreshToken);
 
       if (newToken) {
         // Update token in store
         store.dispatch(updateAccessToken(newToken));
+        storeTokens(newToken, refreshToken);
 
         // Retry request with new token
         requestHeaders.set("Authorization", `Bearer ${newToken}`);
@@ -78,6 +87,7 @@ export async function apiRequest<T>(
       } else {
         // Refresh failed, clear auth
         store.dispatch(clearAuth());
+        clearStoredTokens();
         throw new Error("Authentication expired. Please log in again.");
       }
     }

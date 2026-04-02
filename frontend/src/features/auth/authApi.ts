@@ -1,19 +1,27 @@
 import type {RefreshResponse, UserProfileResponse} from "./authTypes";
 
-const AUTH_SERVICE_URL =
-  process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:8000";
+const AUTH_SERVICE_BASE_URL =
+  (process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:8000").replace(
+    /\/$/,
+    ""
+  );
+const AUTH_SERVICE_API_URL = `${AUTH_SERVICE_BASE_URL}/api`;
 
 /**
- * Refresh access token using HttpOnly cookie
+ * Refresh access token using refresh_token from auth-service.
  */
-export async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(
+  refreshToken: string
+): Promise<string | null> {
   try {
-    const response = await fetch(`${AUTH_SERVICE_URL}/refresh`, {
+    const response = await fetch(`${AUTH_SERVICE_API_URL}/refresh`, {
       method: "POST",
-      credentials: "include", // Sends HttpOnly cookie
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        refresh_token: refreshToken,
+      }),
     });
 
     if (!response.ok) {
@@ -36,7 +44,7 @@ export async function getCurrentUser(
   accessToken: string
 ): Promise<UserProfileResponse | null> {
   try {
-    const response = await fetch(`${AUTH_SERVICE_URL}/me`, {
+    const response = await fetch(`${AUTH_SERVICE_API_URL}/me`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -60,22 +68,11 @@ export async function getCurrentUser(
  * Redirect to Auth service login
  */
 export function redirectToLogin(): void {
-  const callbackUrl = encodeURIComponent(
-    `${window.location.origin}/auth/callback`
-  );
-  window.location.href = `${AUTH_SERVICE_URL}/login?redirect=${callbackUrl}`;
+  const callbackUrl = encodeURIComponent(`${window.location.origin}/auth/callback`);
+  window.location.href = `${AUTH_SERVICE_API_URL}/login?return_to=${callbackUrl}`;
 }
 
 /**
- * Logout (clears cookies on Auth service)
+ * Local logout. Current auth-service flow documented in auth.md is token-based.
  */
-export async function logout(): Promise<void> {
-  try {
-    await fetch(`${AUTH_SERVICE_URL}/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-  } catch (error) {
-    console.error("Error during logout:", error);
-  }
-}
+export async function logout(): Promise<void> {}

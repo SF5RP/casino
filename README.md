@@ -63,6 +63,24 @@ npm run dev
 - **Backend API**: http://localhost:8080
 - **Health Check**: http://localhost:8080/health
 
+### Docker Compose
+```bash
+cp ..env.docker.example ..env
+docker compose up --build
+```
+
+Services:
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8011/api`
+- WebSocket: `ws://localhost:8011/ws`
+- PostgreSQL: `localhost:5432`
+
+How it works:
+- `postgres` starts first and waits until healthy
+- `migrate` runs `./casino-server migrate`
+- `backend` starts only after successful migrations
+- `frontend` builds with `NEXT_PUBLIC_*` from `.env`
+
 ## 📁 Project Structure
 
 ```
@@ -174,7 +192,7 @@ Expected server layout:
 /srv/casino/
   releases/backend/
   current/backend -> /srv/casino/releases/backend/<timestamp>
-  shared/backend/env/backend.env
+  shared/backend/.env/backend..env
 ```
 
 The backend deploy script:
@@ -199,7 +217,7 @@ Expected server layout:
 /srv/casino/
   releases/frontend/
   current/frontend -> /srv/casino/releases/frontend/<timestamp>
-  shared/frontend/env/frontend.env
+  shared/frontend/.env/frontend..env
 ```
 
 The frontend deploy script expects a Next.js standalone bundle with:

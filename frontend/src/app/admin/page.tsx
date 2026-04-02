@@ -25,9 +25,10 @@ import {
   Typography,
 } from "@mui/material";
 import { Logout } from "@mui/icons-material";
-import { AdminAuthForm } from "@/components/casino/components";
-import { useAdminAuth, useDatabaseStatus } from "@/components/casino/hooks";
+import { useDatabaseStatus } from "@/components/casino/hooks";
 import { DatabaseStatusAlert } from "@/components/casino/components/admin/DatabaseStatusAlert";
+import { useAuth } from "@/features/auth";
+import { api } from "@/lib/api/apiClient";
 
 interface Connection {
   id: string;
@@ -60,12 +61,14 @@ interface AdminStats {
 
 export default function AdminPage() {
   const {
+    user,
     isAuthenticated,
     isLoading: authLoading,
     error: authError,
-    authenticate,
+    initialize,
+    login,
     logout,
-  } = useAdminAuth();
+  } = useAuth();
 
   const {
     isConnected: dbConnected,
@@ -93,26 +96,14 @@ export default function AdminPage() {
   const fetchSessions = async () => {
     try {
       setLoading(true);
-
-      // Получаем данные с реального API
-      const isDevelopment = process.env.NODE_ENV === "development";
-      const apiUrl = isDevelopment
-        ? "/api"
-        : process.env.NEXT_PUBLIC_API_URL || "/api";
-      const response = await fetch(`${apiUrl}/admin/sessions`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch sessions");
-      }
-
-      const sessions = await response.json();
+      const sessions = await api.get<Session[]>("/admin/sessions");
       setSessions(sessions);
 
       // Получаем статистику
-      const statsResponse = await fetch(`${apiUrl}/admin/stats`);
-      if (statsResponse.ok) {
-        const stats = await statsResponse.json();
+      try {
+        const stats = await api.get<AdminStats>("/admin/stats");
         setStats(stats);
-      } else {
+      } catch {
         // Fallback: вычисляем статистику локально
         const activeSessions = sessions.filter(
           (s: Session) => s.activeConnections > 0
@@ -146,32 +137,24 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== "admin") return;
     fetchSessions();
     const interval = setInterval(fetchSessions, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthenticated, user?.role]);
 
   const handleViewHistory = async (session: Session) => {
     setSelectedSession(session);
 
     try {
-      const isDevelopment = process.env.NODE_ENV === "development";
-      const apiUrl = isDevelopment
-        ? "/api"
-        : process.env.NEXT_PUBLIC_API_URL || "/api";
-      const response = await fetch(
-        `${apiUrl}/admin/sessions/${session.key}/history`
+      const history = await api.get<number[]>(
+        `/admin/sessions/${session.key}/history`
       );
-      if (response.ok) {
-        const history = await response.json();
-        setSessionHistory(history);
-      } else {
-        // Fallback: генерируем моковую историю
-        const mockHistory = Array.from({ length: session.historyLength }, () =>
-          Math.floor(Math.random() * 37)
-        );
-        setSessionHistory(mockHistory);
-      }
+      setSessionHistory(history);
     } catch (error) {
       console.error("Failed to fetch history:", error);
       // Fallback: генерируем моковую историю
@@ -236,7 +219,6 @@ export default function AdminPage() {
     return `${days} дн назад`;
   };
 
-  // Показываем форму авторизации если не авторизован
   if (authLoading) {
     return (
       <Box
@@ -255,11 +237,46 @@ export default function AdminPage() {
 
   if (!isAuthenticated) {
     return (
-      <AdminAuthForm
-        onAuth={authenticate}
-        isLoading={authLoading}
-        error={authError}
-      />
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#0a0a0a",
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
+        <Typography color="white" variant="h5">
+          Требуется вход через auth-service
+        </Typography>
+        {authError && <Alert severity="error">{authError}</Alert>}
+        <Button variant="contained" onClick={login}>
+          Войти
+        </Button>
+      </Box>
+    );
+  }
+
+  if (user?.role !== "admin") {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#0a0a0a",
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
+        <Alert severity="warning">Недостаточно прав. Требуется роль admin.</Alert>
+        <Button color="inherit" onClick={logout} variant="outlined">
+          Выйти
+        </Button>
+      </Box>
     );
   }
 

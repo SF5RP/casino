@@ -4,6 +4,7 @@ import type { AuthState, User } from "./authTypes";
 const initialState: AuthState = {
   user: null,
   accessToken: null,
+  refreshToken: null,
   isAuthenticated: false,
   isLoading: false,
   error: null,
@@ -13,9 +14,19 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setAuth(state, action: PayloadAction<{ user: User; accessToken: string }>) {
+    setAuth(
+      state,
+      action: PayloadAction<{
+        user: User;
+        accessToken: string;
+        refreshToken?: string | null;
+      }>
+    ) {
       state.user = action.payload.user;
       state.accessToken = action.payload.accessToken;
+      if (action.payload.refreshToken !== undefined) {
+        state.refreshToken = action.payload.refreshToken;
+      }
       state.isAuthenticated = true;
       state.isLoading = false;
       state.error = null;
@@ -37,6 +48,7 @@ const authSlice = createSlice({
     clearAuth(state) {
       state.user = null;
       state.accessToken = null;
+      state.refreshToken = null;
       state.isAuthenticated = false;
       state.isLoading = false;
       state.error = null;
@@ -54,5 +66,7 @@ export const selectAuth = (state: { auth: AuthState }) => state.auth;
 export const selectUser = (state: { auth: AuthState }) => state.auth.user;
 export const selectAccessToken = (state: { auth: AuthState }) =>
   state.auth.accessToken;
+export const selectRefreshToken = (state: { auth: AuthState }) =>
+  state.auth.refreshToken;
 export const selectIsAuthenticated = (state: { auth: AuthState }) =>
   state.auth.isAuthenticated;

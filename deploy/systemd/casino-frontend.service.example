@@ -1,0 +1,25 @@
+# Установка на сервере:
+#   sudo cp casino-frontend.service.example /etc/systemd/system/casino-frontend.service
+#   # при необходимости поправьте путь к node: which node
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now casino-frontend
+#
+# Sudoers для пользователя деплоя (пример):
+#   deploy ALL=(ALL) NOPASSWD:/bin/systemctl restart casino-frontend
+
+[Unit]
+Description=Casino Next.js frontend (standalone)
+After=network.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/srv/casino/current/frontend
+EnvironmentFile=/srv/casino/shared/frontend/env/frontend.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

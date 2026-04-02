@@ -31,6 +31,9 @@ export const Navigation = () => {
           >
             Главная
           </Button>
+          <Button color="inherit" component={Link} href="/admin">
+            Админка
+          </Button>
           {/* Auth Section */}
           <Box sx={{ ml: 2 }}>
             {isAuthenticated ? <UserMenu /> : <DiscordLoginButton />}
