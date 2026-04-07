@@ -1,10 +1,17 @@
 import type {RefreshResponse, UserProfileResponse} from "./authTypes";
 
-const AUTH_SERVICE_BASE_URL =
-  (process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:8000").replace(
-    /\/$/,
-    ""
-  );
+function requireAuthServiceBaseUrl(): string {
+  const value = process.env.NEXT_PUBLIC_AUTH_URL?.trim();
+  if (!value) {
+    throw new Error(
+      "NEXT_PUBLIC_AUTH_URL is required and must point to the auth service base URL"
+    );
+  }
+
+  return value.replace(/\/$/, "");
+}
+
+const AUTH_SERVICE_BASE_URL = requireAuthServiceBaseUrl();
 const AUTH_SERVICE_API_URL = `${AUTH_SERVICE_BASE_URL}/api`;
 
 /**
