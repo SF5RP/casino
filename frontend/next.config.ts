@@ -1,5 +1,18 @@
 import type { NextConfig } from "next";
 
+function toOrigin(value?: string): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    return new URL(trimmed).origin;
+  } catch {
+    return null;
+  }
+}
+
 const nextConfig: NextConfig = {
   output: "standalone",
   images: {
@@ -33,6 +46,17 @@ const nextConfig: NextConfig = {
   async headers() {
     // В режиме разработки разрешаем подключения к localhost
     const isDevelopment = process.env.NODE_ENV === "development";
+    const authOrigin = toOrigin(process.env.NEXT_PUBLIC_AUTH_URL);
+    const connectSrc = [
+      "'self'",
+      "https://mc.yandex.ru",
+      ...(authOrigin ? [authOrigin] : []),
+      "wss:",
+      "ws:",
+      ...(isDevelopment
+        ? ["http://localhost:*", "http://127.0.0.1:*"]
+        : ["http://localhost:8011", "http://127.0.0.1:8011"]),
+    ].join(" ");
 
     return [
       {
@@ -47,9 +71,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: https://mc.yandex.ru",
-              isDevelopment
-                ? "connect-src 'self' https://mc.yandex.ru wss: ws: http://localhost:* http://127.0.0.1:*"
-                : "connect-src 'self' https://mc.yandex.ru wss: ws: http://localhost:8011 http://127.0.0.1:8011",
+              `connect-src ${connectSrc}`,
               "frame-ancestors 'self' https://webvisor.com https://*.yandex.ru https://*.yandex.com",
               "object-src 'none'",
               "base-uri 'self'",
