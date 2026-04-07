@@ -52,7 +52,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
           source: "backend/deploy/deploy_backend.sh"
-          target: "${{ secrets.env.REMOTE_BASE_DIR }}"
+          target: "${{ env.REMOTE_BASE_DIR }}"
 
       - name: Check backend deploy prerequisites
         uses: appleboy/ssh-action@v1.0.0
@@ -84,8 +84,8 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          source: "backend/${{ secrets.env.REMOTE_ARCHIVE }}"
-          target: "${{ secrets.env.REMOTE_TMP_DIR }}"
+          source: "backend/${{ env.REMOTE_ARCHIVE }}"
+          target: "${{ env.REMOTE_TMP_DIR }}"
 
       - name: Run backend deploy
         uses: appleboy/ssh-action@v1.0.0
