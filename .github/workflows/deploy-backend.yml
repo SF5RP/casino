@@ -86,6 +86,7 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           source: "backend/${{ env.REMOTE_ARCHIVE }}"
           target: "${{ env.REMOTE_TMP_DIR }}"
+          strip_components: 1
 
       - name: Run backend deploy
         uses: appleboy/ssh-action@v1.0.0
@@ -96,4 +97,4 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            ${{ env.REMOTE_BASE_DIR }}/backend/deploy/deploy_backend.sh ${{ env.REMOTE_TMP_DIR }}/backend/${{ env.REMOTE_ARCHIVE }}
+            ${{ env.REMOTE_BASE_DIR }}/backend/deploy/deploy_backend.sh ${{ env.REMOTE_TMP_DIR }}/${{ env.REMOTE_ARCHIVE }}
